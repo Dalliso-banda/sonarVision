@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonar Vision</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #12181c;
+    --bg-deep: #0c1114;
+    --panel: #1a2227;
+    --panel-alt: #202a30;
+    --border: #2c383e;
+    --border-soft: #242f35;
+    --text: #ece4d6;
+    --text-dim: #8fa0a6;
+    --text-faint: #5f6f75;
+    --amber: #e8a33d;
+    --amber-soft: rgba(232, 163, 61, 0.14);
+    --teal: #5db3aa;
+    --rust: #c1502e;
+    --rust-soft: rgba(193, 80, 46, 0.16);
+    --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+    --radius: 3px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    min-height: 100%;
+  }
+
+  body {
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* One deliberate ambient motion: a slow sonar sweep behind the whole page,
+     evoking the subject matter without being a distraction. Disabled for
+     users who prefer reduced motion. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: -20vmax;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(232, 163, 61, 0.05) 12deg,
+      transparent 40deg,
+      transparent 360deg
+    );
+    animation: sweep 14s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes sweep {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body::before { animation: none; }
+    * { transition: none !important; animation-duration: 0.001ms !important; }
+  }
+
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
+  }
+
+  header.masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.1rem;
+    margin-bottom: 1.75rem;
+  }
+
+  header.masthead h1 {
+    font-family: var(--font-mono);
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 0;
+  }
+
+  #status {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  @media (max-width: 880px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .panel-header {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .panel-body {
+    padding: 1rem;
+  }
+
+  /* ---- Viewport (video + overlay + live caption) ---- */
+  .viewport-frame {
+    position: relative;
+    background: var(--bg-deep);
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+  }
+
+  .viewport-frame video,
+  .viewport-frame canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  #fusedReadout {
+    position: relative;
+    padding: 0.85rem 1rem;
+    background: var(--panel-alt);
+    border-top: 1px solid var(--border-soft);
+    font-size: 0.95rem;
+    color: var(--text);
+    min-height: 1.3em;
+  }
+
+  #fusedReadout.alert {
+    background: var(--rust-soft);
+    color: #f3c3b2;
+    border-top-color: var(--rust);
+  }
+
+  /* ---- HUD gauge cluster ---- */
+  .hud-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+
+  .hud-cell {
+    background: var(--panel);
+    padding: 0.85rem 0.9rem;
+  }
+
+  .hud-cell .value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--amber);
+    line-height: 1.1;
+  }
+
+  .hud-cell .value .unit {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-left: 0.25rem;
+  }
+
+  .hud-cell .label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 0.3rem;
+  }
+
+  #detected {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  /* ---- Zone segmented indicator ---- */
+  .zone-track {
+    display: flex;
+    gap: 3px;
+  }
+
+  .zone-track .segment {
+    flex: 1;
+    text-align: center;
+    padding: 0.4rem 0.25rem;
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    color: var(--text-faint);
+    background: var(--panel-alt);
+    border: 1px solid var(--border-soft);
+    border-radius: 2px;
+  }
+
+  .zone-track[data-active="far"] .segment[data-zone="far"],
+  .zone-track[data-active="approach"] .segment[data-zone="approach"],
+  .zone-track[data-active="near"] .segment[data-zone="near"] {
+    background: var(--amber-soft);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .zone-track[data-active="close"] .segment[data-zone="close"],
+  .zone-track[data-active="contact"] .segment[data-zone="contact"] {
+    background: var(--rust-soft);
+    border-color: var(--rust);
+    color: #f3c3b2;
+  }
+
+  /* ---- Buttons & inputs ---- */
+  button {
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    color: var(--text);
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.6rem 0.9rem;
+    cursor: pointer;
+  }
+
+  button:hover:not(:disabled) {
+    border-color: var(--amber);
+  }
+
+  button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  button:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+  }
+
+  #startBtn {
+    display: block;
+    width: 100%;
+    padding: 0.9rem;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    background: var(--amber-soft);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    letter-spacing: 0.01em;
+  }
+
+  #startBtn:hover:not(:disabled) {
+    background: var(--amber);
+    color: var(--bg-deep);
+  }
+
+  input[type="text"] {
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    color: var(--text);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.7rem;
+    width: 100%;
+    margin-bottom: 0.6rem;
+  }
+
+  input[type="text"]::placeholder { color: var(--text-faint); }
+
+  /* ---- Calibration panel ---- */
+  #settings p, #familyPanel p {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    max-width: 42ch;
+    margin: 0 0 0.75rem;
+    line-height: 1.5;
+  }
+
+  #settings button, #familyPanel button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 0.5rem;
+  }
+
+  #settings button:last-child, #familyPanel button:last-of-type { margin-bottom: 0; }
+
+  /* ---- Family roster ---- */
+  #faceStatus {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--teal);
+  }
+
+  #enrolledList {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  #enrolledList li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--border-soft);
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+  }
+
+  #enrolledList .remove-btn {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    padding: 0.2rem 0.4rem;
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+  }
+
+  #enrolledList .remove-btn:hover {
+    color: var(--rust);
+    border-color: transparent;
+  }
+
+  /* ---- Debug log ---- */
+  details.log-panel {
+    margin-top: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+
+  details.log-panel summary {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+
+  #debugLog {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    background: var(--bg-deep);
+    padding: 0.85rem 1rem;
+    white-space: pre-wrap;
+    max-height: 220px;
+    overflow-y: auto;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .side-column > * + * { margin-top: 1.25rem; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header class="masthead">
+    <h1>Sonar Vision</h1>
+    <div id="status">Loading detection model...</div>
+  </header>
+
+  <div class="main-grid">
+
+    <!-- Viewport: camera feed, object/face overlay, live caption -->
+    <div class="panel">
+      <div class="viewport-frame">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div id="fusedReadout">Waiting for camera + sensor...</div>
+    </div>
+
+    <!-- Side column: controls and instrument panels -->
+    <div class="side-column">
+
+      <div>
+        <button id="startBtn" disabled>Loading model...</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">Telemetry</div>
+        <div class="panel-body">
+          <div class="hud-grid">
+            <div class="hud-cell">
+              <div class="value"><span id="reading">--</span><span class="unit">cm</span></div>
+              <div class="label">Sonar distance</div>
+            </div>
+            <div class="hud-cell">
+              <div class="value"><span id="speed">--</span><span class="unit">cm/s</span></div>
+              <div class="label">Closing speed</div>
+            </div>
+            <div class="hud-cell">
+              <div id="detected">--</div>
+              <div class="label">Detected</div>
+            </div>
+          </div>
+          <div class="zone-track" id="zoneTrack" data-active="">
+            <span class="segment" data-zone="far">far</span>
+            <span class="segment" data-zone="approach">approach</span>
+            <span class="segment" data-zone="near">near</span>
+            <span class="segment" data-zone="close">close</span>
+            <span class="segment" data-zone="contact">contact</span>
+          </div>
+          <!-- kept for compatibility: JS still reads/writes this text node -->
+          <span id="zone" hidden>--</span>
+        </div>
+      </div>
+
+      <div class="panel" id="settings">
+        <div class="panel-header">Calibration</div>
+        <div class="panel-body">
+          <p>Hold your hand or a wall at the boundary distance you want, then tap the matching button.</p>
+          <button id="calibrateNearBtn" type="button">Set "near" boundary here (<span id="nearVal">50</span> cm)</button>
+          <button id="calibrateCloseBtn" type="button">Set "close" boundary here (<span id="closeVal">20</span> cm)</button>
+          <button id="resetZonesBtn" type="button">Reset to defaults</button>
+        </div>
+      </div>
+
+      <div class="panel" id="familyPanel">
+        <div class="panel-header">Family &amp; friends</div>
+        <div class="panel-body">
+          <p id="faceStatus">Loading face recognition...</p>
+          <p>Point the camera at someone, type their name, and add them. They'll be announced by name next time they're recognized.</p>
+          <input type="text" id="enrollNameInput" placeholder="Name (e.g. Mom)" disabled>
+          <button id="enrollBtn" type="button" disabled>Add from camera</button>
+          <ul id="enrolledList"></ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <details class="log-panel">
+    <summary>System log</summary>
+    <div id="debugLog"></div>
+  </details>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+<!--
+  NOTE ON LOAD ORDER: face-api's browser bundle ships its own copy of TFJS
+  and assigns it to the global `tf`. It's loaded AFTER tfjs + coco-ssd here
+  so coco-ssd (which already captured its own reference to tf at script-eval
+  time) keeps working. This is the standard way people combine the two, but
+  if you ever see coco-ssd detections silently stop working after face-api
+  loads, that global `tf` collision is the first thing to suspect.
+-->
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+<script>
+  const socket = io();
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const octx = overlay.getContext('2d');
+  const readingEl = document.getElementById('reading');
+  const detectedEl = document.getElementById('detected');
+  const zoneEl = document.getElementById('zone');
+  const zoneTrackEl = document.getElementById('zoneTrack');
+  const fusedEl = document.getElementById('fusedReadout');
+  const statusEl = document.getElementById('status');
+  const startBtn = document.getElementById('startBtn');
+  const debugLogEl = document.getElementById('debugLog');
+  const calibrateNearBtn = document.getElementById('calibrateNearBtn');
+  const calibrateCloseBtn = document.getElementById('calibrateCloseBtn');
+  const resetZonesBtn = document.getElementById('resetZonesBtn');
+  const nearValEl = document.getElementById('nearVal');
+  const closeValEl = document.getElementById('closeVal');
+  const faceStatusEl = document.getElementById('faceStatus');
+  const enrollNameInput = document.getElementById('enrollNameInput');
+  const enrollBtn = document.getElementById('enrollBtn');
+  const enrolledListEl = document.getElementById('enrolledList');
+
+  const logLines = [];
+  function log(msg) {
+    const time = new Date().toLocaleTimeString();
+    logLines.push(`[${time}] ${msg}`);
+    if (logLines.length > 12) logLines.shift();
+    debugLogEl.textContent = logLines.join('\n');
+    debugLogEl.scrollTop = debugLogEl.scrollHeight;
+    console.log(msg);
+  }
+
+  // ---------------------------------------------------------------------
+  // Tunables
+  // ---------------------------------------------------------------------
+  const DETECTION_INTERVAL_MS = 300; // coco-ssd is heavier than motion-diff, so throttle it
+  const FACE_DETECTION_INTERVAL_MS = 500; // face recognition is heavier still
+  const SPEECH_COOLDOWN_MS = 3000; // don't re-announce more than once per this window
+  const APPROACH_SPEED_THRESHOLD_CM_S = 30; // cm/s closing speed that counts as "fast"
+  const STOP_COOLDOWN_MS = 2000; // stop warnings can repeat faster than normal detections
+  const STALE_MS = 700; // if distance or detections are older than this, treat fusion as unreliable
+  const CONFIDENCE_THRESHOLD = 0.6; // ignore low-confidence detections — fewer false announcements
+  const FACE_MATCH_THRESHOLD = 0.55; // lower = stricter match; 0.6 is face-api's usual default
+
+  const FACE_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+
+  // COCO-SSD detects 80 classes; most aren't relevant to mobility. Restrict
+  // announcements/drawing to things that actually matter when navigating.
+  const RELEVANT_CLASSES = new Set([
+    'person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck',
+    'bench', 'chair', 'couch', 'bed', 'dining table', 'toilet',
+    'potted plant', 'backpack', 'handbag', 'suitcase',
+    'refrigerator', 'oven', 'sink', 'tv',
+  ]);
+
+  const DEFAULT_ZONES = [
+    { max: 300, label: 'far',      pitch: 300,  interval: null }, // silent
+    { max: 100, label: 'approach', pitch: 500,  interval: 700 },
+    { max: 50,  label: 'near',     pitch: 700,  interval: 350 },
+    { max: 20,  label: 'close',    pitch: 900,  interval: 150 },
+    { max: 0,   label: 'contact',  pitch: 1100, interval: null }, // solid tone
+  ];
+  // Indices into ZONES for the two user-calibratable boundaries.
+  const NEAR_ZONE_INDEX = 2;
+  const CLOSE_ZONE_INDEX = 3;
+
+  let ZONES = loadZones();
+
+  function loadZones() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('sonarVisionZones'));
+      if (Array.isArray(saved) && saved.length === DEFAULT_ZONES.length) {
+        log('loaded calibrated zones from storage');
+        return saved;
+      }
+    } catch (err) {
+      log(`zone load error (using defaults): ${err.message}`);
+    }
+    return DEFAULT_ZONES.map((z) => ({ ...z }));
+  }
+
+  function saveZones() {
+    try {
+      localStorage.setItem('sonarVisionZones', JSON.stringify(ZONES));
+    } catch (err) {
+      log(`zone save error: ${err.message}`);
+    }
+  }
+
+  function refreshZoneLabels() {
+    nearValEl.textContent = ZONES[NEAR_ZONE_INDEX].max;
+    closeValEl.textContent = ZONES[CLOSE_ZONE_INDEX].max;
+  }
+  refreshZoneLabels();
+
+  let model = null; // coco-ssd
+  let modelAvailable = false;
+  let faceApiReady = false;
+  let cameraRunning = false;
+  let latestDistance = null;
+  let latestDistanceAt = 0;
+  let latestSpeed = 0; // cm/s, positive = approaching
+  let latestDetections = [];
+  let latestDetectionsAt = 0;
+  let latestFaces = []; // [{ box, name, distance }]
+  let latestFacesAt = 0;
+  let faceMatcher = null; // faceapi.FaceMatcher built from enrolled descriptors
+  let lastSpokenAt = 0;
+  let lastStopSpokenAt = 0;
+  let lastAnnouncedLabel = null; // avoid re-announcing the same person/object every cooldown window
+
+  // ---------------------------------------------------------------------
+  // Haptics — short pulse per beep, distinct pattern for urgent stop
+  // ---------------------------------------------------------------------
+  function vibrate(pattern) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    } catch (err) {
+      // Not supported (e.g. iOS Safari) — silently ignore, audio/speech still work.
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Speech
+  // ---------------------------------------------------------------------
+  function speak(text, { urgent = false } = {}) {
+    const now = Date.now();
+
+    if (urgent) {
+      if (now - lastStopSpokenAt < STOP_COOLDOWN_MS) return;
+      lastStopSpokenAt = now;
+      if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+      vibrate([100, 50, 100, 50, 100]);
+    } else {
+      if (now - lastSpokenAt < SPEECH_COOLDOWN_MS) return;
+      if (window.speechSynthesis.speaking) return; // don't overlap normal utterances
+      lastSpokenAt = now;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = urgent ? 1.15 : 1.0;
+    utterance.pitch = urgent ? 1.2 : 1.0;
+    utterance.onstart = () => log(`speech started: "${text}"`);
+    utterance.onerror = (e) => log(`SPEECH ERROR: ${e.error}`);
+    utterance.onend = () => log('speech ended');
+
+    // Small delay after cancel() helps a known iOS Safari bug where
+    // speak() called immediately after cancel() is silently dropped.
+    setTimeout(() => {
+      log(`attempting speech: "${text}" (voices available: ${window.speechSynthesis.getVoices().length})`);
+      window.speechSynthesis.speak(utterance);
+    }, urgent ? 60 : 0);
+  }
+
+  // Known iOS Safari bug: the speech queue can go dead after ~15s of
+  // inactivity. Periodically nudging resume() prevents it from getting stuck.
+  setInterval(() => {
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+  }, 8000);
+
+  function unlockSpeech() {
+    // iOS Safari only allows speechSynthesis.speak() if it's triggered directly,
+    // synchronously, by a user gesture. Speaking a very quiet (not fully silent)
+    // utterance here "unlocks" it so later async calls are allowed to play.
+    log('unlocking speech synthesis...');
+    const unlockUtterance = new SpeechSynthesisUtterance('ready');
+    unlockUtterance.volume = 0.01;
+    unlockUtterance.onstart = () => log('unlock utterance started');
+    unlockUtterance.onerror = (e) => log(`UNLOCK ERROR: ${e.error}`);
+    window.speechSynthesis.speak(unlockUtterance);
+  }
+
+  // ---------------------------------------------------------------------
+  // Sonification: continuous audio feedback for distance + direction
+  // ---------------------------------------------------------------------
+  let audioCtx = null;
+  let oscillator = null;
+  let gainNode = null;
+  let panNode = null;
+  let beepTimer = null;
+  let beepOn = false;
+  let currentZoneLabel = null;
+
+  function initAudioFeedback() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    oscillator = audioCtx.createOscillator();
+    gainNode = audioCtx.createGain();
+    oscillator.type = 'sine';
+    gainNode.gain.value = 0;
+
+    if (audioCtx.createStereoPanner) {
+      panNode = audioCtx.createStereoPanner();
+      oscillator.connect(gainNode);
+      gainNode.connect(panNode);
+      panNode.connect(audioCtx.destination);
+    } else {
+      panNode = null;
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+    }
+
+    oscillator.start();
+
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => log('audio context resumed'));
+    }
+  }
+
+  function zoneFor(distanceCm) {
+    return ZONES.find((z) => distanceCm > z.max) || ZONES[ZONES.length - 1];
+  }
+
+  function updateSonification(distanceCm) {
+    if (!oscillator || !gainNode || distanceCm === null) return;
+
+    const zone = zoneFor(distanceCm);
+    oscillator.frequency.setTargetAtTime(zone.pitch, audioCtx.currentTime, 0.05);
+
+    if (zone.label !== currentZoneLabel) {
+      currentZoneLabel = zone.label;
+      zoneEl.textContent = zone.label;
+      zoneTrackEl.dataset.active = zone.label; // presentational only — lights up the matching segment
+      clearInterval(beepTimer);
+      beepTimer = null;
+
+      if (zone.label === 'far') {
+        gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+      } else if (zone.label === 'contact') {
+        gainNode.gain.setTargetAtTime(0.15, audioCtx.currentTime, 0.05);
+        vibrate([150, 60, 150, 60, 150]);
+      } else {
+        beepOn = false;
+        beepTimer = setInterval(() => {
+          beepOn = !beepOn;
+          gainNode.gain.setTargetAtTime(beepOn ? 0.15 : 0, audioCtx.currentTime, 0.02);
+          if (beepOn) vibrate(Math.min(zone.interval / 2, 80));
+        }, zone.interval / 2);
+      }
+    }
+  }
+
+  // Pans the tone toward the side of frame the nearest relevant object/face
+  // is on, so a user can tell "left" vs "right" as well as "how close."
+  // NOTE: this is driven by the CAMERA's frame position, while the pitch
+  // above is driven by the SONAR's distance — they are two separate signals
+  // and can point at different objects if the sonar's cone and the camera's
+  // field of view aren't both centered on the same thing. Genuine per-side
+  // distance would need multiple ultrasonic sensors instead.
+  function updatePan(box) {
+    if (!panNode) return;
+    if (!box) {
+      panNode.pan.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+      return;
+    }
+    const centerX = box.x !== undefined ? box.x + box.width / 2 : box[0] + box[2] / 2;
+    const normalized = (centerX / overlay.width) * 2 - 1;
+    panNode.pan.setTargetAtTime(Math.max(-1, Math.min(1, normalized)), audioCtx.currentTime, 0.1);
+  }
+
+  // ---------------------------------------------------------------------
+  // IndexedDB — stores face descriptors (numeric vectors) locally, never
+  // photos and never sent anywhere. Deleting a person removes their data.
+  // ---------------------------------------------------------------------
+  const DB_NAME = 'sonarVisionFaces';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'faces';
+
+  function openFaceDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveFaceToDB(name, descriptor) {
+    const db = await openFaceDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).add({ name, descriptor });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function getAllFacesFromDB() {
+    const db = await openFaceDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function deleteFaceFromDB(id) {
+    const db = await openFaceDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function loadEnrolledFaces() {
+    const rows = await getAllFacesFromDB();
+    const byName = {};
+    rows.forEach((r) => {
+      if (!byName[r.name]) byName[r.name] = [];
+      byName[r.name].push(new Float32Array(r.descriptor));
+    });
+    const labeled = Object.entries(byName).map(
+      ([name, descriptors]) => new faceapi.LabeledFaceDescriptors(name, descriptors)
+    );
+    faceMatcher = labeled.length ? new faceapi.FaceMatcher(labeled, FACE_MATCH_THRESHOLD) : null;
+    renderEnrolledList(rows);
+    return rows;
+  }
+
+  function renderEnrolledList(rows) {
+    enrolledListEl.innerHTML = '';
+    rows.forEach((r) => {
+      const li = document.createElement('li');
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = r.name;
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'remove-btn';
+      delBtn.textContent = 'Remove';
+      delBtn.addEventListener('click', async () => {
+        await deleteFaceFromDB(r.id);
+        log(`removed enrolled face: ${r.name}`);
+        await loadEnrolledFaces();
+      });
+      li.appendChild(nameSpan);
+      li.appendChild(delBtn);
+      enrolledListEl.appendChild(li);
+    });
+  }
+
+  function updateEnrollAvailability() {
+    const ready = faceApiReady && cameraRunning;
+    enrollNameInput.disabled = !ready;
+    enrollBtn.disabled = !ready;
+  }
+
+  async function enrollFace() {
+    const name = enrollNameInput.value.trim();
+    if (!name) {
+      log('enrollment skipped: no name entered');
+      return;
+    }
+    if (!faceApiReady || !cameraRunning) {
+      log('enrollment skipped: face model or camera not ready');
+      return;
+    }
+    try {
+      const result = await faceapi
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+      if (!result) {
+        log('enrollment failed: no face detected in frame');
+        speak('No face detected, please try again');
+        return;
+      }
+      await saveFaceToDB(name, Array.from(result.descriptor));
+      await loadEnrolledFaces();
+      enrollNameInput.value = '';
+      log(`enrolled face: ${name}`);
+      speak(`${name} added`);
+    } catch (err) {
+      log(`ENROLL ERROR: ${err.message}`);
+    }
+  }
+
+  enrollBtn.addEventListener('click', enrollFace);
+
+  // ---------------------------------------------------------------------
+  // Model + camera + detection loops
+  // ---------------------------------------------------------------------
+  async function loadModel() {
+    log('loading object detection model...');
+    try {
+      model = await cocoSsd.load();
+      modelAvailable = true;
+      log('coco-ssd model loaded successfully');
+      statusEl.textContent = 'Model loaded. Click start to begin.';
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start Camera + Sonar';
+    } catch (err) {
+      modelAvailable = false;
+      log(`MODEL LOAD ERROR: ${err.message} — falling back to sonar-only mode`);
+      statusEl.textContent = 'Camera detection unavailable — sonar-only mode ready.';
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start (sonar only)';
+    }
+  }
+
+  async function loadFaceModels() {
+    log('loading face recognition models...');
+    try {
+      await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODEL_URL);
+      await faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL);
+      await faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL);
+      faceApiReady = true;
+      faceStatusEl.textContent = 'Face recognition ready.';
+      log('face recognition models loaded successfully');
+    } catch (err) {
+      faceApiReady = false;
+      faceStatusEl.textContent = 'Face recognition unavailable — objects will still be announced normally.';
+      log(`FACE MODEL LOAD ERROR: ${err.message} — continuing without face recognition`);
+    }
+    updateEnrollAvailability();
+  }
+
+  async function startCamera() {
+    try {
+      log('requesting camera...');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      log('camera stream acquired');
+      video.srcObject = stream;
+      await video.play();
+      log(`video playing (${video.videoWidth}x${video.videoHeight})`);
+      overlay.width = video.videoWidth;
+      overlay.height = video.videoHeight;
+      cameraRunning = true;
+      updateEnrollAvailability();
+      detectLoop();
+      faceDetectLoop();
+    } catch (err) {
+      log(`CAMERA ERROR: ${err.name} — ${err.message} — continuing sonar-only`);
+      statusEl.textContent = 'Camera unavailable — running sonar-only.';
+    }
+  }
+
+  async function detectLoop() {
+    try {
+      if (model && video.readyState === 4) {
+        const raw = await model.detect(video);
+        latestDetections = raw
+          .filter((d) => RELEVANT_CLASSES.has(d.class) && d.score >= CONFIDENCE_THRESHOLD)
+          .sort((a, b) => b.score - a.score);
+        latestDetectionsAt = Date.now();
+        drawOverlay();
+        updateFusedReadout();
+      }
+    } catch (err) {
+      log(`DETECT ERROR: ${err.message}`);
+    }
+    setTimeout(detectLoop, DETECTION_INTERVAL_MS);
+  }
+
+  async function faceDetectLoop() {
+    try {
+      if (faceApiReady && video.readyState === 4) {
+        const results = await faceapi
+          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptors();
+
+        latestFaces = results.map((r) => {
+          let name = null;
+          let distance = null;
+          if (faceMatcher) {
+            const best = faceMatcher.findBestMatch(r.descriptor);
+            if (best.label !== 'unknown') {
+              name = best.label;
+              distance = best.distance;
+            }
+          }
+          return { box: r.detection.box, name, distance };
+        });
+        latestFacesAt = Date.now();
+        drawOverlay();
+        updateFusedReadout();
+      }
+    } catch (err) {
+      log(`FACE DETECT ERROR: ${err.message}`);
+    }
+    setTimeout(faceDetectLoop, FACE_DETECTION_INTERVAL_MS);
+  }
+
+  function drawOverlay() {
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+
+    // Object boxes — green
+    latestDetections.forEach((d) => {
+      const [x, y, w, h] = d.bbox;
+      octx.strokeStyle = '#4ade80';
+      octx.lineWidth = 2;
+      octx.strokeRect(x, y, w, h);
+      octx.fillStyle = '#4ade80';
+      octx.font = '14px system-ui';
+      const label = `${d.class} ${(d.score * 100).toFixed(0)}%`;
+      const textWidth = octx.measureText(label).width;
+      octx.fillRect(x, y - 18, textWidth + 8, 18);
+      octx.fillStyle = '#0f1117';
+      octx.fillText(label, x + 4, y - 4);
+    });
+
+    // Face boxes — blue, named when recognized
+    latestFaces.forEach((f) => {
+      const { x, y, width, height } = f.box;
+      octx.strokeStyle = '#60a5fa';
+      octx.lineWidth = 2;
+      octx.strokeRect(x, y, width, height);
+      octx.fillStyle = '#60a5fa';
+      octx.font = '14px system-ui';
+      const label = f.name || 'unknown face';
+      const textWidth = octx.measureText(label).width;
+      octx.fillRect(x, y - 18, textWidth + 8, 18);
+      octx.fillStyle = '#0f1117';
+      octx.fillText(label, x + 4, y - 4);
+    });
+
+    detectedEl.textContent = latestDetections.length
+      ? latestDetections.map((d) => d.class).join(', ')
+      : 'nothing';
+  }
+
+  function capitalize(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // Picks what to announce: a recognized family member takes priority over
+  // a generic object class (so a known face beats "person"), otherwise
+  // falls back to the highest-confidence relevant object.
+  function getIdentity() {
+    const now = Date.now();
+    const facesAreFresh = (now - latestFacesAt) < STALE_MS;
+    if (facesAreFresh) {
+      const named = latestFaces
+        .filter((f) => f.name)
+        .sort((a, b) => a.distance - b.distance)[0];
+      if (named) return { label: named.name, box: named.box, isFace: true };
+    }
+
+    const detectionsAreFresh = (now - latestDetectionsAt) < STALE_MS;
+    const topDetection = detectionsAreFresh ? latestDetections[0] : null;
+    if (topDetection) {
+      return { label: capitalize(topDetection.class), box: topDetection.bbox, isFace: false };
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------
+  // Fusion: speech/announcements say WHO or WHAT, sonification says HOW
+  // FAR (pitch/beep rate) and roughly WHICH SIDE (panning).
+  // ---------------------------------------------------------------------
+  function updateFusedReadout() {
+    const now = Date.now();
+    const distanceIsFresh = latestDistance !== null && (now - latestDistanceAt) < STALE_MS;
+    const identity = getIdentity();
+
+    updatePan(identity ? identity.box : null);
+
+    const closeBoundary = ZONES[CLOSE_ZONE_INDEX].max;
+    const isClose = distanceIsFresh && latestDistance > 0 && latestDistance < closeBoundary;
+    const isApproachingFast = distanceIsFresh && latestSpeed > APPROACH_SPEED_THRESHOLD_CM_S;
+
+    if (isApproachingFast) {
+      const who = identity ? identity.label : 'Object';
+      fusedEl.textContent = `${who} approaching fast — ${latestSpeed} cm/s`;
+      fusedEl.classList.add('alert');
+      speak(`Stop! ${who} approaching fast`, { urgent: true });
+      lastAnnouncedLabel = who;
+      return;
+    }
+
+    if (identity && distanceIsFresh) {
+      fusedEl.textContent = `${identity.label} detected — ${latestDistance} cm away`;
+    } else if (identity) {
+      fusedEl.textContent = `${identity.label} detected — waiting for sonar reading`;
+    } else if (distanceIsFresh) {
+      fusedEl.textContent = `Object at ${latestDistance} cm — not recognized by camera`;
+    } else {
+      fusedEl.textContent = 'Waiting for camera + sensor...';
+    }
+
+    fusedEl.classList.toggle('alert', Boolean(identity) && isClose);
+
+    if (identity && isClose && identity.label !== lastAnnouncedLabel) {
+      speak(`${identity.label} detected`);
+      lastAnnouncedLabel = identity.label;
+    } else if (!identity || !isClose) {
+      lastAnnouncedLabel = null;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Calibration UI
+  // ---------------------------------------------------------------------
+  function calibrate(zoneIndex) {
+    if (latestDistance === null) {
+      log('calibration skipped: no sonar reading yet');
+      return;
+    }
+    ZONES[zoneIndex].max = Math.round(latestDistance);
+    saveZones();
+    refreshZoneLabels();
+    log(`calibrated "${ZONES[zoneIndex].label}" boundary to ${ZONES[zoneIndex].max} cm`);
+    speak(`${ZONES[zoneIndex].label} boundary set to ${ZONES[zoneIndex].max} centimeters`);
+  }
+
+  calibrateNearBtn.addEventListener('click', () => calibrate(NEAR_ZONE_INDEX));
+  calibrateCloseBtn.addEventListener('click', () => calibrate(CLOSE_ZONE_INDEX));
+  resetZonesBtn.addEventListener('click', () => {
+    ZONES = DEFAULT_ZONES.map((z) => ({ ...z }));
+    saveZones();
+    refreshZoneLabels();
+    log('zones reset to defaults');
+  });
+
+  // ---------------------------------------------------------------------
+  // Wiring
+  // ---------------------------------------------------------------------
+  startBtn.addEventListener('click', async () => {
+    unlockSpeech();
+    initAudioFeedback();
+    startBtn.disabled = true;
+    startBtn.textContent = 'Running';
+
+    if (modelAvailable) {
+      await startCamera();
+    } else {
+      log('starting in sonar-only mode (no camera detection)');
+      fusedEl.textContent = 'Sonar-only mode — listening for distance...';
+    }
+  });
+
+  socket.on('distance', (data) => {
+    if (data.distanceCm === null) return;
+    latestDistance = data.distanceCm;
+    latestDistanceAt = Date.now();
+    latestSpeed = data.speedCmPerSec || 0;
+    readingEl.textContent = data.distanceCm;
+    document.getElementById('speed').textContent = latestSpeed;
+    updateSonification(data.distanceCm);
+    updateFusedReadout();
+  });
+
+  loadModel();
+  loadFaceModels();
+  loadEnrolledFaces();
+</script>
+
+</body>
+</html>
