@@ -22,6 +22,7 @@
     --amber: #e8a33d;
     --amber-soft: rgba(232, 163, 61, 0.14);
     --teal: #5db3aa;
+    --teal-soft: rgba(93, 179, 170, 0.14);
     --rust: #c1502e;
     --rust-soft: rgba(193, 80, 46, 0.16);
     --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
@@ -30,17 +31,6 @@
   }
 
   * { box-sizing: border-box; }
-    .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
 
   html, body {
     margin: 0;
@@ -56,9 +46,7 @@
     overflow-x: hidden;
   }
 
-  /* One deliberate ambient motion: a slow sonar sweep behind the whole page,
-     evoking the subject matter without being a distraction. Disabled for
-     users who prefer reduced motion. */
+  /* One deliberate ambient motion: a slow sonar sweep behind the whole page. */
   body::before {
     content: '';
     position: fixed;
@@ -141,11 +129,9 @@
     font-weight: 600;
   }
 
-  .panel-body {
-    padding: 1rem;
-  }
+  .panel-body { padding: 1rem; }
 
-  /* ---- Viewport (video + overlay + live caption) ---- */
+  /* ---- Viewport ---- */
   .viewport-frame {
     position: relative;
     background: var(--bg-deep);
@@ -176,6 +162,22 @@
     background: var(--rust-soft);
     color: #f3c3b2;
     border-top-color: var(--rust);
+  }
+
+  #fusedReadout.degraded {
+    background: var(--panel-alt);
+    color: var(--text-dim);
+  }
+
+  /* Visually hidden but read by screen readers. */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   /* ---- HUD gauge cluster ---- */
@@ -223,11 +225,30 @@
     color: var(--text);
   }
 
-  /* ---- Zone segmented indicator ---- */
-  .zone-track {
-    display: flex;
+  /* ---- Per-sensor bearing row (multi-sensor rigs) ---- */
+  .bearing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 3px;
+    margin-bottom: 0.75rem;
   }
+
+  .bearing-cell {
+    background: var(--panel-alt);
+    border: 1px solid var(--border-soft);
+    border-radius: 2px;
+    padding: 0.5rem 0.6rem;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .bearing-cell .bv { font-size: 1.05rem; color: var(--text); }
+  .bearing-cell .bl { font-size: 0.7rem; color: var(--text-faint); margin-top: 0.15rem; }
+  .bearing-cell[data-nearest="true"] { border-color: var(--amber); }
+  .bearing-cell[data-offline="true"] { opacity: 0.4; }
+
+  /* ---- Zone segmented indicator ---- */
+  .zone-track { display: flex; gap: 3px; }
 
   .zone-track .segment {
     flex: 1;
@@ -268,17 +289,12 @@
     cursor: pointer;
   }
 
-  button:hover:not(:disabled) {
-    border-color: var(--amber);
-  }
-
-  button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
+  button:hover:not(:disabled) { border-color: var(--amber); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
 
   button:focus-visible,
-  input:focus-visible {
+  input:focus-visible,
+  select:focus-visible {
     outline: 2px solid var(--amber);
     outline-offset: 2px;
   }
@@ -287,7 +303,7 @@
     display: block;
     width: 100%;
     padding: 0.9rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.6rem;
     font-size: 1rem;
     font-weight: 600;
     background: var(--amber-soft);
@@ -296,12 +312,22 @@
     letter-spacing: 0.01em;
   }
 
-  #startBtn:hover:not(:disabled) {
-    background: var(--amber);
-    color: var(--bg-deep);
+  #startBtn:hover:not(:disabled) { background: var(--amber); color: var(--bg-deep); }
+
+  #surveyBtn {
+    display: block;
+    width: 100%;
+    padding: 0.9rem;
+    font-size: 1rem;
+    font-weight: 600;
+    background: var(--teal-soft);
+    border: 1px solid var(--teal);
+    color: var(--teal);
   }
 
-  input[type="text"] {
+  #surveyBtn:hover:not(:disabled) { background: var(--teal); color: var(--bg-deep); }
+
+  input[type="text"], select {
     font-family: var(--font-sans);
     font-size: 0.9rem;
     color: var(--text);
@@ -313,10 +339,18 @@
     margin-bottom: 0.6rem;
   }
 
+  input[type="range"] { width: 100%; margin-bottom: 0.6rem; accent-color: var(--amber); }
+
   input[type="text"]::placeholder { color: var(--text-faint); }
 
-  /* ---- Calibration panel ---- */
-  #settings p, #familyPanel p {
+  label.field {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 0.3rem;
+  }
+
+  .panel-body p {
     font-size: 0.85rem;
     color: var(--text-dim);
     max-width: 42ch;
@@ -324,14 +358,21 @@
     line-height: 1.5;
   }
 
-  #settings button, #familyPanel button {
+  .panel-body p.notice {
+    color: var(--text-faint);
+    border-left: 2px solid var(--border);
+    padding-left: 0.7rem;
+  }
+
+  #settings button, #familyPanel button, #outputPanel button, #logPanel button {
     display: block;
     width: 100%;
     text-align: left;
     margin-bottom: 0.5rem;
   }
 
-  #settings button:last-child, #familyPanel button:last-of-type { margin-bottom: 0; }
+  .btn-row { display: flex; gap: 0.5rem; }
+  .btn-row button { margin-bottom: 0.5rem; }
 
   /* ---- Family roster ---- */
   #faceStatus {
@@ -357,19 +398,20 @@
     font-size: 0.88rem;
   }
 
+  #enrolledList .sample-count { color: var(--text-faint); font-size: 0.78rem; }
+
   #enrolledList .remove-btn {
     background: none;
     border: none;
     color: var(--text-faint);
     padding: 0.2rem 0.4rem;
+    width: auto;
+    margin: 0;
     font-family: var(--font-sans);
     font-size: 0.78rem;
   }
 
-  #enrolledList .remove-btn:hover {
-    color: var(--rust);
-    border-color: transparent;
-  }
+  #enrolledList .remove-btn:hover { color: var(--rust); border-color: transparent; }
 
   /* ---- Debug log ---- */
   details.log-panel {
@@ -408,25 +450,30 @@
 
   <header class="masthead">
     <h1>Sonar Vision</h1>
-    <div id="status" aria-live="polite">Loading detection model...</div>
+    <div id="status" role="status">Loading detection model...</div>
   </header>
+
+  <!-- Screen-reader announcement channels. In "screen reader" output mode
+       these carry every announcement instead of speechSynthesis, so the user
+       hears one voice at their own configured rate. -->
+  <div id="srPolite" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="srUrgent" class="sr-only" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
   <div class="main-grid">
 
-    <!-- Viewport: camera feed, object/face overlay, live caption -->
     <div class="panel">
       <div class="viewport-frame">
         <video id="video" autoplay playsinline muted></video>
-        <canvas id="overlay"></canvas>
+        <canvas id="overlay" aria-hidden="true"></canvas>
       </div>
-      <div id="fusedReadout" aria-live="assertive">Waiting for camera + sensor...</div>
+      <div id="fusedReadout" aria-live="polite" aria-atomic="true">Waiting for camera and sensor.</div>
     </div>
 
-    <!-- Side column: controls and instrument panels -->
     <div class="side-column">
 
       <div>
         <button id="startBtn" disabled>Loading model...</button>
+        <button id="surveyBtn" disabled>What's around me?</button>
       </div>
 
       <div class="panel">
@@ -435,7 +482,7 @@
           <div class="hud-grid">
             <div class="hud-cell">
               <div class="value"><span id="reading">--</span><span class="unit">cm</span></div>
-              <div class="label">Sonar distance</div>
+              <div class="label">Nearest distance</div>
             </div>
             <div class="hud-cell">
               <div class="value"><span id="speed">--</span><span class="unit">cm/s</span></div>
@@ -446,6 +493,22 @@
               <div class="label">Detected</div>
             </div>
           </div>
+
+          <div class="bearing-grid" id="bearingGrid" hidden>
+            <div class="bearing-cell" data-channel="left">
+              <div class="bv"><span data-field="value">--</span></div>
+              <div class="bl">left</div>
+            </div>
+            <div class="bearing-cell" data-channel="center">
+              <div class="bv"><span data-field="value">--</span></div>
+              <div class="bl">centre</div>
+            </div>
+            <div class="bearing-cell" data-channel="right">
+              <div class="bv"><span data-field="value">--</span></div>
+              <div class="bl">right</div>
+            </div>
+          </div>
+
           <div class="zone-track" id="zoneTrack" data-active="">
             <span class="segment" data-zone="far">far</span>
             <span class="segment" data-zone="approach">approach</span>
@@ -453,8 +516,25 @@
             <span class="segment" data-zone="close">close</span>
             <span class="segment" data-zone="contact">contact</span>
           </div>
-          <!-- kept for compatibility: JS still reads/writes this text node -->
           <span id="zone" hidden>--</span>
+        </div>
+      </div>
+
+      <div class="panel" id="outputPanel">
+        <div class="panel-header">Output</div>
+        <div class="panel-body">
+          <label class="field" for="outputMode">How announcements are spoken</label>
+          <select id="outputMode">
+            <option value="speech">This app speaks them</option>
+            <option value="screenreader">My screen reader reads them</option>
+            <option value="silent">Tones and vibration only</option>
+          </select>
+
+          <label class="field" for="rateSlider">Speech rate (<span id="rateVal">1.0</span>x)</label>
+          <input type="range" id="rateSlider" min="0.7" max="3" step="0.1" value="1">
+
+          <button id="cameraFlipBtn" type="button" disabled>Switch to front camera</button>
+          <button id="wakeLockBtn" type="button" aria-pressed="true">Keep screen awake: on</button>
         </div>
       </div>
 
@@ -462,6 +542,7 @@
         <div class="panel-header">Calibration</div>
         <div class="panel-body">
           <p>Hold your hand or a wall at the boundary distance you want, then tap the matching button.</p>
+          <button id="calibrateApproachBtn" type="button">Set "approach" boundary here (<span id="approachVal">100</span> cm)</button>
           <button id="calibrateNearBtn" type="button">Set "near" boundary here (<span id="nearVal">50</span> cm)</button>
           <button id="calibrateCloseBtn" type="button">Set "close" boundary here (<span id="closeVal">20</span> cm)</button>
           <button id="resetZonesBtn" type="button">Reset to defaults</button>
@@ -471,12 +552,24 @@
       <div class="panel" id="familyPanel">
         <div class="panel-header">Family &amp; friends</div>
         <div class="panel-body">
-          <p id="faceStatus" aria-live="polite">Loading face recognition...</p>
-          <p>Point the camera at someone, type their name, and add them. They'll be announced by name next time they're recognized.</p>
-          <label for="enrollNameInput" class="visually-hidden">Name</label>
-          <input type="text" id="enrollNameInput" placeholder="Name (e.g. Mom)" disabled>
+          <p id="faceStatus">Loading face recognition...</p>
+          <p>Point the camera at someone and add them. Adding takes five looks over a few seconds, so ask them to turn their head slowly. They'll be announced by name when recognised.</p>
+          <input type="text" id="enrollNameInput" placeholder="Name, for example Mom" aria-label="Name of the person to add" disabled>
+          <div class="btn-row">
+            <button id="voiceNameBtn" type="button" disabled>Say the name</button>
+          </div>
           <button id="enrollBtn" type="button" disabled>Add from camera</button>
           <ul id="enrolledList"></ul>
+          <p class="notice">Faces are stored on this device as numeric descriptors, never as photos, and never leave the phone. Ask each person before adding them; in many places recording someone's face needs their consent.</p>
+        </div>
+      </div>
+
+      <div class="panel" id="logPanel">
+        <div class="panel-header">Session history</div>
+        <div class="panel-body">
+          <p>Zone changes and alerts are recorded on this device so you can tune the thresholds against what actually happened on a walk.</p>
+          <button id="exportLogBtn" type="button">Export session history</button>
+          <button id="clearLogBtn" type="button">Clear session history</button>
         </div>
       </div>
 
@@ -497,33 +590,47 @@
   NOTE ON LOAD ORDER: face-api's browser bundle ships its own copy of TFJS
   and assigns it to the global `tf`. It's loaded AFTER tfjs + coco-ssd here
   so coco-ssd (which already captured its own reference to tf at script-eval
-  time) keeps working. This is the standard way people combine the two, but
-  if you ever see coco-ssd detections silently stop working after face-api
-  loads, that global `tf` collision is the first thing to suspect.
+  time) keeps working. If coco-ssd detections ever silently stop after
+  face-api loads, that global `tf` collision is the first thing to suspect.
 -->
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
 <script>
   const socket = io();
   const video = document.getElementById('video');
   const overlay = document.getElementById('overlay');
   const octx = overlay.getContext('2d');
   const readingEl = document.getElementById('reading');
+  const speedEl = document.getElementById('speed');
   const detectedEl = document.getElementById('detected');
   const zoneEl = document.getElementById('zone');
   const zoneTrackEl = document.getElementById('zoneTrack');
+  const bearingGridEl = document.getElementById('bearingGrid');
   const fusedEl = document.getElementById('fusedReadout');
   const statusEl = document.getElementById('status');
   const startBtn = document.getElementById('startBtn');
+  const surveyBtn = document.getElementById('surveyBtn');
   const debugLogEl = document.getElementById('debugLog');
+  const calibrateApproachBtn = document.getElementById('calibrateApproachBtn');
   const calibrateNearBtn = document.getElementById('calibrateNearBtn');
   const calibrateCloseBtn = document.getElementById('calibrateCloseBtn');
   const resetZonesBtn = document.getElementById('resetZonesBtn');
+  const approachValEl = document.getElementById('approachVal');
   const nearValEl = document.getElementById('nearVal');
   const closeValEl = document.getElementById('closeVal');
   const faceStatusEl = document.getElementById('faceStatus');
   const enrollNameInput = document.getElementById('enrollNameInput');
   const enrollBtn = document.getElementById('enrollBtn');
+  const voiceNameBtn = document.getElementById('voiceNameBtn');
   const enrolledListEl = document.getElementById('enrolledList');
+  const outputModeEl = document.getElementById('outputMode');
+  const rateSlider = document.getElementById('rateSlider');
+  const rateValEl = document.getElementById('rateVal');
+  const cameraFlipBtn = document.getElementById('cameraFlipBtn');
+  const wakeLockBtn = document.getElementById('wakeLockBtn');
+  const exportLogBtn = document.getElementById('exportLogBtn');
+  const clearLogBtn = document.getElementById('clearLogBtn');
+  const srPolite = document.getElementById('srPolite');
+  const srUrgent = document.getElementById('srUrgent');
 
   const logLines = [];
   function log(msg) {
@@ -538,34 +645,44 @@
   // ---------------------------------------------------------------------
   // Tunables
   // ---------------------------------------------------------------------
-  const DETECTION_INTERVAL_MS = 300; // coco-ssd is heavier than motion-diff, so throttle it
-  const FACE_DETECTION_INTERVAL_MS = 500; // face recognition is heavier still
-  const SPEECH_COOLDOWN_MS = 3000; // don't re-announce more than once per this window
-  const APPROACH_SPEED_THRESHOLD_CM_S = 30; // cm/s closing speed that counts as "fast"
-  const STOP_COOLDOWN_MS = 2000; // stop warnings can repeat faster than normal detections
-  const STALE_MS = 700; // if distance or detections are older than this, treat fusion as unreliable
-  const CONFIDENCE_THRESHOLD = 0.6; // ignore low-confidence detections — fewer false announcements
-  const FACE_MATCH_THRESHOLD = 0.55; // lower = stricter match; 0.6 is face-api's usual default
+  const DETECTION_INTERVAL_MS = 300;
+  const FACE_DETECTION_INTERVAL_MS = 500;
+  const FACE_IDLE_INTERVAL_MS = 1500;   // when coco-ssd sees no person, poll lazily
+  const SPEECH_COOLDOWN_MS = 3000;
+  const APPROACH_SPEED_THRESHOLD_CM_S = 30;
+  const APPROACH_CONFIRM_FRAMES = 2;    // consecutive fast frames before a stop alert
+  const STOP_COOLDOWN_MS = 2000;
+  const SENSOR_STALE_MS = 1200;         // distance older than this is unusable
+  const SENSOR_LOST_MS = 2000;          // silence everything and warn past this
+  // Detection staleness must sit well clear of the loop interval, or a slow
+  // inference pass makes detections flicker between fresh and stale.
+  const DETECTION_STALE_MS = DETECTION_INTERVAL_MS * 2.5;
+  const FACE_STALE_MS = FACE_DETECTION_INTERVAL_MS * 2.5;
+  const CONFIDENCE_THRESHOLD = 0.6;
+  const FACE_MATCH_THRESHOLD = 0.55;    // lower = stricter; face-api's default is 0.6
+  const MEDIAN_WINDOW = 5;              // ultrasonic outlier rejection
+  const SPEED_WINDOW_MS = 600;
+  const ENROLL_SAMPLES = 5;
+  const ENROLL_SAMPLE_GAP_MS = 800;
 
-  const FACE_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
+  const FACE_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 
-  // COCO-SSD detects 80 classes; most aren't relevant to mobility. Restrict
-  // announcements/drawing to things that actually matter when navigating.
   const RELEVANT_CLASSES = new Set([
     'person', 'bicycle', 'car', 'motorcycle', 'bus', 'truck',
     'bench', 'chair', 'couch', 'bed', 'dining table', 'toilet',
     'potted plant', 'backpack', 'handbag', 'suitcase',
     'refrigerator', 'oven', 'sink', 'tv',
+    'dog', 'cat', 'traffic light', 'stop sign', 'fire hydrant',
   ]);
 
   const DEFAULT_ZONES = [
-    { max: 300, label: 'far',      pitch: 300,  interval: null }, // silent
+    { max: 300, label: 'far',      pitch: 300,  interval: null },
     { max: 100, label: 'approach', pitch: 500,  interval: 700 },
     { max: 50,  label: 'near',     pitch: 700,  interval: 350 },
     { max: 20,  label: 'close',    pitch: 900,  interval: 150 },
-    { max: 0,   label: 'contact',  pitch: 1100, interval: null }, // solid tone
+    { max: 0,   label: 'contact',  pitch: 1100, interval: null },
   ];
-  // Indices into ZONES for the two user-calibratable boundaries.
+  const APPROACH_ZONE_INDEX = 1;
   const NEAR_ZONE_INDEX = 2;
   const CLOSE_ZONE_INDEX = 3;
 
@@ -575,8 +692,12 @@
     try {
       const saved = JSON.parse(localStorage.getItem('sonarVisionZones'));
       if (Array.isArray(saved) && saved.length === DEFAULT_ZONES.length) {
-        log('loaded calibrated zones from storage');
-        return saved;
+        const merged = DEFAULT_ZONES.map((z, i) => ({ ...z, max: Number(saved[i].max) }));
+        if (zonesAreOrdered(merged)) {
+          log('loaded calibrated zones from storage');
+          return merged;
+        }
+        log('stored zones were out of order — using defaults');
       }
     } catch (err) {
       log(`zone load error (using defaults): ${err.message}`);
@@ -584,99 +705,205 @@
     return DEFAULT_ZONES.map((z) => ({ ...z }));
   }
 
+  // zoneFor() walks ZONES in array order, so the boundaries MUST stay strictly
+  // decreasing. If they don't, a zone silently becomes unreachable and the user
+  // loses a whole feedback tier with no error anywhere.
+  function zonesAreOrdered(zones) {
+    return zones.every((z, i) => i === 0 || z.max < zones[i - 1].max);
+  }
+
   function saveZones() {
     try {
-      localStorage.setItem('sonarVisionZones', JSON.stringify(ZONES));
+      localStorage.setItem('sonarVisionZones', JSON.stringify(ZONES.map((z) => ({ max: z.max }))));
     } catch (err) {
       log(`zone save error: ${err.message}`);
     }
   }
 
   function refreshZoneLabels() {
+    approachValEl.textContent = ZONES[APPROACH_ZONE_INDEX].max;
     nearValEl.textContent = ZONES[NEAR_ZONE_INDEX].max;
     closeValEl.textContent = ZONES[CLOSE_ZONE_INDEX].max;
   }
   refreshZoneLabels();
 
-  let model = null; // coco-ssd
+  let model = null;
   let modelAvailable = false;
   let faceApiReady = false;
   let cameraRunning = false;
-  let latestDistance = null;
-  let latestDistanceAt = 0;
-  let latestSpeed = 0; // cm/s, positive = approaching
+  let facingMode = 'environment';
   let latestDetections = [];
   let latestDetectionsAt = 0;
-  let latestFaces = []; // [{ box, name, distance }]
+  let latestFaces = [];
   let latestFacesAt = 0;
-  let faceMatcher = null; // faceapi.FaceMatcher built from enrolled descriptors
+  let faceMatcher = null;
   let lastSpokenAt = 0;
   let lastStopSpokenAt = 0;
-  let lastAnnouncedLabel = null; // avoid re-announcing the same person/object every cooldown window
+  let lastAnnouncedLabel = null;
+  let sensorLost = false;
+  let running = false;
 
   // ---------------------------------------------------------------------
-  // Haptics — short pulse per beep, distinct pattern for urgent stop
+  // Sonar channels. A single-sensor rig sends {distanceCm}; a three-sensor
+  // rig sends {left, center, right}. Both shapes are accepted.
+  // ---------------------------------------------------------------------
+  const CHANNELS = ['left', 'center', 'right'];
+  const sonar = {};
+  CHANNELS.forEach((c) => {
+    sonar[c] = { raw: [], value: null, at: 0, history: [], speed: 0, fastFrames: 0, active: false };
+  });
+  let multiSensor = false;
+
+  function median(values) {
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+
+  // Ultrasonic sensors throw wild single-frame outliers off soft or angled
+  // surfaces. A raw reading must never reach the alert logic directly.
+  function ingest(channel, cm, now) {
+    const ch = sonar[channel];
+    ch.active = true;
+    ch.raw.push(cm);
+    if (ch.raw.length > MEDIAN_WINDOW) ch.raw.shift();
+    ch.value = Math.round(median(ch.raw));
+    ch.at = now;
+
+    ch.history.push({ t: now, v: ch.value });
+    while (ch.history.length > 1 && now - ch.history[0].t > SPEED_WINDOW_MS) ch.history.shift();
+
+    if (ch.history.length >= 2) {
+      const first = ch.history[0];
+      const last = ch.history[ch.history.length - 1];
+      const dt = (last.t - first.t) / 1000;
+      // Positive speed = closing.
+      ch.speed = dt > 0.15 ? Math.round((first.v - last.v) / dt) : 0;
+    } else {
+      ch.speed = 0;
+    }
+
+    if (ch.speed > APPROACH_SPEED_THRESHOLD_CM_S) ch.fastFrames += 1;
+    else ch.fastFrames = 0;
+  }
+
+  function channelFresh(channel, now = Date.now()) {
+    const ch = sonar[channel];
+    return ch.active && ch.value !== null && (now - ch.at) < SENSOR_STALE_MS;
+  }
+
+  function nearestChannel(now = Date.now()) {
+    let best = null;
+    CHANNELS.forEach((c) => {
+      if (!channelFresh(c, now)) return;
+      if (!best || sonar[c].value < sonar[best].value) best = c;
+    });
+    return best;
+  }
+
+  function resetSonar() {
+    CHANNELS.forEach((c) => {
+      sonar[c].raw = [];
+      sonar[c].history = [];
+      sonar[c].value = null;
+      sonar[c].speed = 0;
+      sonar[c].fastFrames = 0;
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Haptics
   // ---------------------------------------------------------------------
   function vibrate(pattern) {
     try {
       if (navigator.vibrate) navigator.vibrate(pattern);
     } catch (err) {
-      // Not supported (e.g. iOS Safari) — silently ignore, audio/speech still work.
+      // Unsupported (iOS Safari) — audio and speech still carry the signal.
     }
   }
 
   // ---------------------------------------------------------------------
-  // Speech
+  // Announcements. Three output modes, because the target user very likely
+  // already has VoiceOver or TalkBack running and two voices talking over
+  // each other is worse than one.
   // ---------------------------------------------------------------------
-  function speak(text, { urgent = false } = {}) {
+  let outputMode = localStorage.getItem('sonarVisionOutputMode') || 'speech';
+  let speechRate = Number(localStorage.getItem('sonarVisionSpeechRate')) || 1;
+  outputModeEl.value = outputMode;
+  rateSlider.value = speechRate;
+  rateValEl.textContent = speechRate.toFixed(1);
+
+  outputModeEl.addEventListener('change', () => {
+    outputMode = outputModeEl.value;
+    localStorage.setItem('sonarVisionOutputMode', outputMode);
+    log(`output mode: ${outputMode}`);
+    announce(`Output mode set to ${outputModeEl.selectedOptions[0].textContent}`, { force: true });
+  });
+
+  rateSlider.addEventListener('input', () => {
+    speechRate = Number(rateSlider.value);
+    rateValEl.textContent = speechRate.toFixed(1);
+    localStorage.setItem('sonarVisionSpeechRate', String(speechRate));
+  });
+
+  // force: user-initiated, bypasses the cooldown (they asked for it).
+  function announce(text, { urgent = false, force = false } = {}) {
     const now = Date.now();
 
-    if (urgent) {
-      if (now - lastStopSpokenAt < STOP_COOLDOWN_MS) return;
-      lastStopSpokenAt = now;
-      if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
-      vibrate([100, 50, 100, 50, 100]);
-    } else {
-      if (now - lastSpokenAt < SPEECH_COOLDOWN_MS) return;
-      if (window.speechSynthesis.speaking) return; // don't overlap normal utterances
-      lastSpokenAt = now;
+    if (!force) {
+      if (urgent) {
+        if (now - lastStopSpokenAt < STOP_COOLDOWN_MS) return;
+        lastStopSpokenAt = now;
+      } else {
+        if (now - lastSpokenAt < SPEECH_COOLDOWN_MS) return;
+        lastSpokenAt = now;
+      }
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = urgent ? 1.15 : 1.0;
-    utterance.pitch = urgent ? 1.2 : 1.0;
-    utterance.onstart = () => log(`speech started: "${text}"`);
-    utterance.onerror = (e) => log(`SPEECH ERROR: ${e.error}`);
-    utterance.onend = () => log('speech ended');
+    if (urgent) vibrate([100, 50, 100, 50, 100]);
+    recordEvent(urgent ? 'alert' : 'announce', text);
 
-    // Small delay after cancel() helps a known iOS Safari bug where
-    // speak() called immediately after cancel() is silently dropped.
-    setTimeout(() => {
-      log(`attempting speech: "${text}" (voices available: ${window.speechSynthesis.getVoices().length})`);
-      window.speechSynthesis.speak(utterance);
-    }, urgent ? 60 : 0);
+    if (outputMode === 'silent') return;
+
+    if (outputMode === 'screenreader') {
+      const target = urgent ? srUrgent : srPolite;
+      // Clearing first forces the live region to re-announce identical text.
+      target.textContent = '';
+      setTimeout(() => { target.textContent = text; }, 30);
+      return;
+    }
+
+    speak(text, urgent);
   }
 
-  // Known iOS Safari bug: the speech queue can go dead after ~15s of
-  // inactivity. Periodically nudging resume() prevents it from getting stuck.
+  function speak(text, urgent) {
+    if (urgent && window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+    else if (!urgent && window.speechSynthesis.speaking) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = Math.min(3, speechRate * (urgent ? 1.15 : 1));
+    utterance.pitch = urgent ? 1.2 : 1.0;
+    utterance.onerror = (e) => log(`SPEECH ERROR: ${e.error}`);
+
+    // Small delay after cancel() works around an iOS Safari bug where speak()
+    // immediately following cancel() is silently dropped.
+    setTimeout(() => window.speechSynthesis.speak(utterance), urgent ? 60 : 0);
+  }
+
+  // iOS Safari lets the speech queue go dead after ~15s idle; resume() nudges it.
   setInterval(() => {
     if (window.speechSynthesis.paused) window.speechSynthesis.resume();
   }, 8000);
 
   function unlockSpeech() {
-    // iOS Safari only allows speechSynthesis.speak() if it's triggered directly,
-    // synchronously, by a user gesture. Speaking a very quiet (not fully silent)
-    // utterance here "unlocks" it so later async calls are allowed to play.
-    log('unlocking speech synthesis...');
     const unlockUtterance = new SpeechSynthesisUtterance('ready');
     unlockUtterance.volume = 0.01;
-    unlockUtterance.onstart = () => log('unlock utterance started');
     unlockUtterance.onerror = (e) => log(`UNLOCK ERROR: ${e.error}`);
     window.speechSynthesis.speak(unlockUtterance);
   }
 
   // ---------------------------------------------------------------------
-  // Sonification: continuous audio feedback for distance + direction
+  // Sonification
   // ---------------------------------------------------------------------
   let audioCtx = null;
   let oscillator = null;
@@ -705,14 +932,20 @@
     }
 
     oscillator.start();
-
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume().then(() => log('audio context resumed'));
-    }
+    if (audioCtx.state === 'suspended') audioCtx.resume().then(() => log('audio context resumed'));
   }
 
   function zoneFor(distanceCm) {
     return ZONES.find((z) => distanceCm > z.max) || ZONES[ZONES.length - 1];
+  }
+
+  function silenceTone() {
+    clearInterval(beepTimer);
+    beepTimer = null;
+    currentZoneLabel = null;
+    zoneEl.textContent = '--';
+    zoneTrackEl.dataset.active = '';
+    if (gainNode && audioCtx) gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
   }
 
   function updateSonification(distanceCm) {
@@ -722,9 +955,10 @@
     oscillator.frequency.setTargetAtTime(zone.pitch, audioCtx.currentTime, 0.05);
 
     if (zone.label !== currentZoneLabel) {
+      recordEvent('zone', `${currentZoneLabel || 'none'} to ${zone.label} at ${distanceCm} cm`);
       currentZoneLabel = zone.label;
       zoneEl.textContent = zone.label;
-      zoneTrackEl.dataset.active = zone.label; // presentational only — lights up the matching segment
+      zoneTrackEl.dataset.active = zone.label;
       clearInterval(beepTimer);
       beepTimer = null;
 
@@ -744,39 +978,43 @@
     }
   }
 
-  // Pans the tone toward the side of frame the nearest relevant object/face
-  // is on, so a user can tell "left" vs "right" as well as "how close."
-  // NOTE: this is driven by the CAMERA's frame position, while the pitch
-  // above is driven by the SONAR's distance — they are two separate signals
-  // and can point at different objects if the sonar's cone and the camera's
-  // field of view aren't both centered on the same thing. Genuine per-side
-  // distance would need multiple ultrasonic sensors instead.
+  // With three sensors the pan comes from which sensor is nearest, which is a
+  // real bearing. With one sensor it falls back to the camera's frame position,
+  // which is only a guess: the sonar cone and the lens may not be looking at
+  // the same object.
   function updatePan(box) {
-    if (!panNode) return;
-    if (!box) {
-      panNode.pan.setTargetAtTime(0, audioCtx.currentTime, 0.1);
-      return;
+    if (!panNode || !audioCtx) return;
+    let value = 0;
+
+    if (multiSensor) {
+      const nearest = nearestChannel();
+      value = nearest === 'left' ? -0.85 : nearest === 'right' ? 0.85 : 0;
+    } else if (box) {
+      const centerX = box.x !== undefined ? box.x + box.width / 2 : box[0] + box[2] / 2;
+      value = Math.max(-1, Math.min(1, (centerX / (overlay.width || 1)) * 2 - 1));
     }
-    const centerX = box.x !== undefined ? box.x + box.width / 2 : box[0] + box[2] / 2;
-    const normalized = (centerX / overlay.width) * 2 - 1;
-    panNode.pan.setTargetAtTime(Math.max(-1, Math.min(1, normalized)), audioCtx.currentTime, 0.1);
+
+    panNode.pan.setTargetAtTime(value, audioCtx.currentTime, 0.1);
   }
 
   // ---------------------------------------------------------------------
-  // IndexedDB — stores face descriptors (numeric vectors) locally, never
-  // photos and never sent anywhere. Deleting a person removes their data.
+  // IndexedDB: face descriptors and the session history, both local only.
   // ---------------------------------------------------------------------
   const DB_NAME = 'sonarVisionFaces';
-  const DB_VERSION = 1;
-  const STORE_NAME = 'faces';
+  const DB_VERSION = 2;
+  const FACE_STORE = 'faces';
+  const EVENT_STORE = 'events';
 
-  function openFaceDB() {
+  function openDB() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = () => {
         const db = req.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        if (!db.objectStoreNames.contains(FACE_STORE)) {
+          db.createObjectStore(FACE_STORE, { keyPath: 'id', autoIncrement: true });
+        }
+        if (!db.objectStoreNames.contains(EVENT_STORE)) {
+          db.createObjectStore(EVENT_STORE, { keyPath: 'id', autoIncrement: true });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -784,73 +1022,145 @@
     });
   }
 
-  async function saveFaceToDB(name, descriptor) {
-    const db = await openFaceDB();
+  function txDone(tx) {
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      tx.objectStore(STORE_NAME).add({ name, descriptor });
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   }
 
+  async function saveFaceToDB(name, descriptors) {
+    const db = await openDB();
+    const tx = db.transaction(FACE_STORE, 'readwrite');
+    tx.objectStore(FACE_STORE).add({ name, descriptors, addedAt: Date.now() });
+    return txDone(tx);
+  }
+
   async function getAllFacesFromDB() {
-    const db = await openFaceDB();
+    const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const req = tx.objectStore(STORE_NAME).getAll();
+      const req = db.transaction(FACE_STORE, 'readonly').objectStore(FACE_STORE).getAll();
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
   }
 
   async function deleteFaceFromDB(id) {
-    const db = await openFaceDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      tx.objectStore(STORE_NAME).delete(id);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    const db = await openDB();
+    const tx = db.transaction(FACE_STORE, 'readwrite');
+    tx.objectStore(FACE_STORE).delete(id);
+    return txDone(tx);
   }
 
-  async function loadEnrolledFaces() {
+  // Session history is fire-and-forget: it must never block or break navigation.
+  let eventQueue = [];
+  function recordEvent(kind, detail) {
+    eventQueue.push({ t: Date.now(), kind, detail });
+    if (eventQueue.length > 40) flushEvents();
+  }
+
+  async function flushEvents() {
+    if (!eventQueue.length) return;
+    const batch = eventQueue;
+    eventQueue = [];
     try {
-      const rows = await getAllFacesFromDB();
-      const byName = {};
-      rows.forEach((r) => {
-        if (!byName[r.name]) byName[r.name] = [];
-        byName[r.name].push(new Float32Array(r.descriptor));
-      });
-      const labeled = Object.entries(byName).map(
-        ([name, descriptors]) => new faceapi.LabeledFaceDescriptors(name, descriptors)
-      );
-      faceMatcher = labeled.length ? new faceapi.FaceMatcher(labeled, FACE_MATCH_THRESHOLD) : null;
-      renderEnrolledList(rows);
-      return rows;
+      const db = await openDB();
+      const tx = db.transaction(EVENT_STORE, 'readwrite');
+      const store = tx.objectStore(EVENT_STORE);
+      batch.forEach((e) => store.add(e));
+      await txDone(tx);
     } catch (err) {
-      log(`FACE DB ERROR: ${err.message} — enrolled faces unavailable this session`);
-      faceStatusEl.textContent = 'Family & friends list unavailable — object detection still works.';
-      faceMatcher = null;
+      log(`event log write failed: ${err.message}`);
+    }
+  }
+  setInterval(flushEvents, 10000);
+  window.addEventListener('pagehide', flushEvents);
+
+  exportLogBtn.addEventListener('click', async () => {
+    await flushEvents();
+    try {
+      const db = await openDB();
+      const req = db.transaction(EVENT_STORE, 'readonly').objectStore(EVENT_STORE).getAll();
+      req.onsuccess = () => {
+        const rows = req.result.map((r) => ({ ...r, time: new Date(r.t).toISOString() }));
+        const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `sonar-vision-session-${new Date().toISOString().slice(0, 19)}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        announce(`Exported ${rows.length} events`, { force: true });
+      };
+    } catch (err) {
+      log(`export failed: ${err.message}`);
+    }
+  });
+
+  clearLogBtn.addEventListener('click', async () => {
+    eventQueue = [];
+    const db = await openDB();
+    const tx = db.transaction(EVENT_STORE, 'readwrite');
+    tx.objectStore(EVENT_STORE).clear();
+    await txDone(tx);
+    announce('Session history cleared', { force: true });
+  });
+
+  async function loadEnrolledFaces() {
+    let rows = [];
+    try {
+      rows = await getAllFacesFromDB();
+    } catch (err) {
+      log(`face store read failed: ${err.message}`);
       return [];
     }
+
+    if (typeof faceapi === 'undefined') {
+      renderEnrolledList(rows);
+      return rows;
+    }
+
+    const byName = {};
+    rows.forEach((r) => {
+      // v1 rows stored a single `descriptor`; v2 stores `descriptors` array.
+      const list = r.descriptors || (r.descriptor ? [r.descriptor] : []);
+      if (!byName[r.name]) byName[r.name] = [];
+      list.forEach((d) => byName[r.name].push(new Float32Array(d)));
+    });
+
+    const labeled = Object.entries(byName)
+      .filter(([, d]) => d.length)
+      .map(([name, descriptors]) => new faceapi.LabeledFaceDescriptors(name, descriptors));
+
+    faceMatcher = labeled.length ? new faceapi.FaceMatcher(labeled, FACE_MATCH_THRESHOLD) : null;
+    renderEnrolledList(rows);
+    return rows;
   }
 
   function renderEnrolledList(rows) {
     enrolledListEl.innerHTML = '';
     rows.forEach((r) => {
+      const count = (r.descriptors || [r.descriptor].filter(Boolean)).length;
       const li = document.createElement('li');
+
       const nameSpan = document.createElement('span');
       nameSpan.textContent = r.name;
+      const countSpan = document.createElement('span');
+      countSpan.className = 'sample-count';
+      countSpan.textContent = ` ${count} look${count === 1 ? '' : 's'}`;
+      nameSpan.appendChild(countSpan);
+
       const delBtn = document.createElement('button');
       delBtn.type = 'button';
       delBtn.className = 'remove-btn';
       delBtn.textContent = 'Remove';
+      delBtn.setAttribute('aria-label', `Remove ${r.name}`);
       delBtn.addEventListener('click', async () => {
         await deleteFaceFromDB(r.id);
         log(`removed enrolled face: ${r.name}`);
         await loadEnrolledFaces();
+        announce(`${r.name} removed`, { force: true });
       });
+
       li.appendChild(nameSpan);
       li.appendChild(delBtn);
       enrolledListEl.appendChild(li);
@@ -861,73 +1171,135 @@
     const ready = faceApiReady && cameraRunning;
     enrollNameInput.disabled = !ready;
     enrollBtn.disabled = !ready;
+    voiceNameBtn.disabled = !ready || !hasSpeechRecognition();
   }
+
+  // ---------------------------------------------------------------------
+  // Voice entry for the name field — typing is the least accessible part of
+  // this whole interface.
+  // ---------------------------------------------------------------------
+  function hasSpeechRecognition() {
+    return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+
+  voiceNameBtn.addEventListener('click', () => {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) return;
+    const recog = new Recognition();
+    recog.lang = navigator.language || 'en-US';
+    recog.interimResults = false;
+    recog.maxAlternatives = 1;
+
+    announce('Say the name now', { force: true });
+    voiceNameBtn.textContent = 'Listening...';
+
+    recog.onresult = (e) => {
+      const said = e.results[0][0].transcript.trim().replace(/[.?!]$/, '');
+      enrollNameInput.value = said;
+      announce(`Name set to ${said}`, { force: true });
+    };
+    recog.onerror = (e) => {
+      log(`VOICE INPUT ERROR: ${e.error}`);
+      announce('Could not catch that. Type the name instead.', { force: true });
+    };
+    recog.onend = () => { voiceNameBtn.textContent = 'Say the name'; };
+
+    try { recog.start(); } catch (err) { log(`voice input start failed: ${err.message}`); }
+  });
+
+  // ---------------------------------------------------------------------
+  // Enrollment: several looks per person, because one descriptor is fragile
+  // across lighting and head angle.
+  // ---------------------------------------------------------------------
+  let enrolling = false;
 
   async function enrollFace() {
     const name = enrollNameInput.value.trim();
     if (!name) {
-      log('enrollment skipped: no name entered');
+      announce('Enter or say a name first', { force: true });
       return;
     }
-    if (!faceApiReady || !cameraRunning) {
-      log('enrollment skipped: face model or camera not ready');
-      return;
-    }
+    if (!faceApiReady || !cameraRunning || enrolling) return;
+
+    enrolling = true;
+    enrollBtn.disabled = true;
+    enrollBtn.textContent = 'Adding...';
+    announce(`Adding ${name}. Ask them to turn their head slowly.`, { force: true });
+
+    const descriptors = [];
     try {
-      const result = await faceapi
-        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-      if (!result) {
-        log('enrollment failed: no face detected in frame');
-        speak('No face detected, please try again');
+      for (let i = 0; i < ENROLL_SAMPLES; i += 1) {
+        const result = await faceapi
+          .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (result) {
+          descriptors.push(Array.from(result.descriptor));
+          announce(`Look ${descriptors.length} of ${ENROLL_SAMPLES}`, { force: true });
+        }
+        await new Promise((r) => setTimeout(r, ENROLL_SAMPLE_GAP_MS));
+      }
+
+      if (!descriptors.length) {
+        announce('No face found. Point the camera at them and try again.', { force: true });
+        log('enrollment failed: no face detected in any sample');
         return;
       }
-      await saveFaceToDB(name, Array.from(result.descriptor));
+
+      await saveFaceToDB(name, descriptors);
       await loadEnrolledFaces();
       enrollNameInput.value = '';
-      log(`enrolled face: ${name}`);
-      speak(`${name} added`);
+      recordEvent('enroll', `${name} (${descriptors.length} looks)`);
+      log(`enrolled face: ${name} with ${descriptors.length} descriptors`);
+      announce(`${name} added with ${descriptors.length} looks`, { force: true });
     } catch (err) {
       log(`ENROLL ERROR: ${err.message}`);
+      announce('Adding failed. Try again.', { force: true });
+    } finally {
+      enrolling = false;
+      enrollBtn.disabled = false;
+      enrollBtn.textContent = 'Add from camera';
     }
   }
 
   enrollBtn.addEventListener('click', enrollFace);
 
   // ---------------------------------------------------------------------
-  // Model + camera + detection loops
+  // Models and camera
   // ---------------------------------------------------------------------
   async function loadModel() {
     log('loading object detection model...');
     try {
       model = await cocoSsd.load();
       modelAvailable = true;
-      log('coco-ssd model loaded successfully');
-      statusEl.textContent = 'Model loaded. Click start to begin.';
+      log('coco-ssd model loaded');
+      statusEl.textContent = 'Model ready. Press start.';
       startBtn.disabled = false;
-      startBtn.textContent = 'Start Camera + Sonar';
+      startBtn.textContent = 'Start camera and sonar';
     } catch (err) {
       modelAvailable = false;
       log(`MODEL LOAD ERROR: ${err.message} — falling back to sonar-only mode`);
-      statusEl.textContent = 'Camera detection unavailable — sonar-only mode ready.';
+      statusEl.textContent = 'Camera detection unavailable. Sonar-only mode ready.';
       startBtn.disabled = false;
-      startBtn.textContent = 'Start (sonar only)';
+      startBtn.textContent = 'Start in sonar-only mode';
     }
   }
 
   async function loadFaceModels() {
     log('loading face recognition models...');
     try {
+      if (typeof faceapi === 'undefined') throw new Error('face-api script did not load');
       await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODEL_URL);
       await faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL);
       await faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL);
       faceApiReady = true;
       faceStatusEl.textContent = 'Face recognition ready.';
-      log('face recognition models loaded successfully');
+      log('face recognition models loaded');
+      await loadEnrolledFaces();
     } catch (err) {
       faceApiReady = false;
-      faceStatusEl.textContent = 'Face recognition unavailable — objects will still be announced normally.';
+      faceStatusEl.textContent = 'Face recognition unavailable. Objects are still announced.';
       log(`FACE MODEL LOAD ERROR: ${err.message} — continuing without face recognition`);
     }
     updateEnrollAvailability();
@@ -935,32 +1307,63 @@
 
   async function startCamera() {
     try {
-      log('requesting camera...');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      log('camera stream acquired');
+      log(`requesting ${facingMode} camera...`);
+      if (video.srcObject) video.srcObject.getTracks().forEach((t) => t.stop());
+
+      // A navigation aid must look where the user is walking. `video: true`
+      // hands you the selfie camera on most phones.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+        audio: false,
+      });
+
       video.srcObject = stream;
       await video.play();
-      log(`video playing (${video.videoWidth}x${video.videoHeight})`);
+      log(`video playing (${video.videoWidth}x${video.videoHeight}, ${facingMode})`);
       overlay.width = video.videoWidth;
       overlay.height = video.videoHeight;
       cameraRunning = true;
+      cameraFlipBtn.disabled = false;
+      cameraFlipBtn.textContent = facingMode === 'environment'
+        ? 'Switch to front camera'
+        : 'Switch to rear camera';
       updateEnrollAvailability();
-      detectLoop();
-      faceDetectLoop();
+      return true;
     } catch (err) {
+      cameraRunning = false;
       log(`CAMERA ERROR: ${err.name} — ${err.message} — continuing sonar-only`);
-      statusEl.textContent = 'Camera unavailable — running sonar-only.';
+      statusEl.textContent = 'Camera unavailable. Running sonar-only.';
+      updateEnrollAvailability();
+      return false;
     }
   }
 
+  cameraFlipBtn.addEventListener('click', async () => {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    const ok = await startCamera();
+    announce(ok
+      ? `Using ${facingMode === 'environment' ? 'rear' : 'front'} camera`
+      : 'Could not switch camera', { force: true });
+  });
+
+  // ---------------------------------------------------------------------
+  // Detection loops
+  // ---------------------------------------------------------------------
+  let personInFrame = false;
+
   async function detectLoop() {
     try {
-      if (model && video.readyState === 4) {
+      if (model && cameraRunning && video.readyState === 4) {
         const raw = await model.detect(video);
         latestDetections = raw
           .filter((d) => RELEVANT_CLASSES.has(d.class) && d.score >= CONFIDENCE_THRESHOLD)
           .sort((a, b) => b.score - a.score);
         latestDetectionsAt = Date.now();
+        personInFrame = latestDetections.some((d) => d.class === 'person');
         drawOverlay();
         updateFusedReadout();
       }
@@ -970,70 +1373,83 @@
     setTimeout(detectLoop, DETECTION_INTERVAL_MS);
   }
 
+  // Full descriptor extraction on empty frames is the single biggest waste of
+  // battery here, so idle back hard when coco-ssd sees nobody.
   async function faceDetectLoop() {
+    let interval = FACE_IDLE_INTERVAL_MS;
     try {
-      if (faceApiReady && video.readyState === 4) {
-        const results = await faceapi
-          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
-          .withFaceLandmarks()
-          .withFaceDescriptors();
+      if (faceApiReady && cameraRunning && video.readyState === 4 && !enrolling) {
+        if (personInFrame) {
+          interval = FACE_DETECTION_INTERVAL_MS;
+          const results = await faceapi
+            .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks()
+            .withFaceDescriptors();
 
-        latestFaces = results.map((r) => {
-          let name = null;
-          let distance = null;
-          if (faceMatcher) {
-            const best = faceMatcher.findBestMatch(r.descriptor);
-            if (best.label !== 'unknown') {
-              name = best.label;
-              distance = best.distance;
+          latestFaces = results.map((r) => {
+            let name = null;
+            let matchScore = null; // descriptor distance, NOT physical distance
+            if (faceMatcher) {
+              const best = faceMatcher.findBestMatch(r.descriptor);
+              if (best.label !== 'unknown') {
+                name = best.label;
+                matchScore = best.distance;
+              }
             }
-          }
-          return { box: r.detection.box, name, distance };
-        });
-        latestFacesAt = Date.now();
-        drawOverlay();
-        updateFusedReadout();
+            return { box: r.detection.box, name, matchScore };
+          });
+          latestFacesAt = Date.now();
+          drawOverlay();
+          updateFusedReadout();
+        } else if (latestFaces.length) {
+          latestFaces = [];
+          drawOverlay();
+        }
       }
     } catch (err) {
       log(`FACE DETECT ERROR: ${err.message}`);
     }
-    setTimeout(faceDetectLoop, FACE_DETECTION_INTERVAL_MS);
+    setTimeout(faceDetectLoop, interval);
   }
 
   function drawOverlay() {
+    const now = Date.now();
     octx.clearRect(0, 0, overlay.width, overlay.height);
 
-    // Object boxes — green
-    latestDetections.forEach((d) => {
-      const [x, y, w, h] = d.bbox;
-      octx.strokeStyle = '#4ade80';
-      octx.lineWidth = 2;
-      octx.strokeRect(x, y, w, h);
-      octx.fillStyle = '#4ade80';
-      octx.font = '14px system-ui';
-      const label = `${d.class} ${(d.score * 100).toFixed(0)}%`;
-      const textWidth = octx.measureText(label).width;
-      octx.fillRect(x, y - 18, textWidth + 8, 18);
-      octx.fillStyle = '#0f1117';
-      octx.fillText(label, x + 4, y - 4);
-    });
+    const detectionsFresh = (now - latestDetectionsAt) < DETECTION_STALE_MS;
+    const facesFresh = (now - latestFacesAt) < FACE_STALE_MS;
 
-    // Face boxes — blue, named when recognized
-    latestFaces.forEach((f) => {
-      const { x, y, width, height } = f.box;
-      octx.strokeStyle = '#60a5fa';
-      octx.lineWidth = 2;
-      octx.strokeRect(x, y, width, height);
-      octx.fillStyle = '#60a5fa';
-      octx.font = '14px system-ui';
-      const label = f.name || 'unknown face';
-      const textWidth = octx.measureText(label).width;
-      octx.fillRect(x, y - 18, textWidth + 8, 18);
-      octx.fillStyle = '#0f1117';
-      octx.fillText(label, x + 4, y - 4);
-    });
+    if (detectionsFresh) {
+      latestDetections.forEach((d) => {
+        const [x, y, w, h] = d.bbox;
+        octx.strokeStyle = '#4ade80';
+        octx.lineWidth = 2;
+        octx.strokeRect(x, y, w, h);
+        octx.fillStyle = '#4ade80';
+        octx.font = '14px system-ui';
+        const label = `${d.class} ${(d.score * 100).toFixed(0)}%`;
+        octx.fillRect(x, y - 18, octx.measureText(label).width + 8, 18);
+        octx.fillStyle = '#0f1117';
+        octx.fillText(label, x + 4, y - 4);
+      });
+    }
 
-    detectedEl.textContent = latestDetections.length
+    if (facesFresh) {
+      latestFaces.forEach((f) => {
+        const { x, y, width, height } = f.box;
+        octx.strokeStyle = '#60a5fa';
+        octx.lineWidth = 2;
+        octx.strokeRect(x, y, width, height);
+        octx.fillStyle = '#60a5fa';
+        octx.font = '14px system-ui';
+        const label = f.name || 'unknown face';
+        octx.fillRect(x, y - 18, octx.measureText(label).width + 8, 18);
+        octx.fillStyle = '#0f1117';
+        octx.fillText(label, x + 4, y - 4);
+      });
+    }
+
+    detectedEl.textContent = detectionsFresh && latestDetections.length
       ? latestDetections.map((d) => d.class).join(', ')
       : 'nothing';
   }
@@ -1042,122 +1458,368 @@
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
-  // Picks what to announce: a recognized family member takes priority over
-  // a generic object class (so a known face beats "person"), otherwise
-  // falls back to the highest-confidence relevant object.
+  function bearingFor(box) {
+    if (!box || !overlay.width) return null;
+    const centerX = box.x !== undefined ? box.x + box.width / 2 : box[0] + box[2] / 2;
+    const n = centerX / overlay.width;
+    if (n < 0.34) return 'to your left';
+    if (n > 0.66) return 'to your right';
+    return 'ahead';
+  }
+
   function getIdentity() {
     const now = Date.now();
-    const facesAreFresh = (now - latestFacesAt) < STALE_MS;
-    if (facesAreFresh) {
+    if ((now - latestFacesAt) < FACE_STALE_MS) {
       const named = latestFaces
         .filter((f) => f.name)
-        .sort((a, b) => a.distance - b.distance)[0];
+        .sort((a, b) => a.matchScore - b.matchScore)[0];
       if (named) return { label: named.name, box: named.box, isFace: true };
     }
 
-    const detectionsAreFresh = (now - latestDetectionsAt) < STALE_MS;
-    const topDetection = detectionsAreFresh ? latestDetections[0] : null;
-    if (topDetection) {
-      return { label: capitalize(topDetection.class), box: topDetection.bbox, isFace: false };
+    if ((now - latestDetectionsAt) < DETECTION_STALE_MS && latestDetections[0]) {
+      const top = latestDetections[0];
+      return { label: capitalize(top.class), box: top.bbox, isFace: false };
     }
     return null;
   }
 
   // ---------------------------------------------------------------------
-  // Fusion: speech/announcements say WHO or WHAT, sonification says HOW
-  // FAR (pitch/beep rate) and roughly WHICH SIDE (panning).
+  // Fusion. Identity is announced when it CHANGES, at whatever range the
+  // camera can see it — waiting for the sonar's close boundary meant a
+  // recognised face could essentially never be announced, since no phone
+  // camera recognises anyone at 20 cm.
   // ---------------------------------------------------------------------
   function updateFusedReadout() {
     const now = Date.now();
-    const distanceIsFresh = latestDistance !== null && (now - latestDistanceAt) < STALE_MS;
+    const nearest = nearestChannel(now);
+    const distance = nearest ? sonar[nearest].value : null;
+    const speed = nearest ? sonar[nearest].speed : 0;
     const identity = getIdentity();
 
     updatePan(identity ? identity.box : null);
+    updateBearingCells(now, nearest);
 
-    const closeBoundary = ZONES[CLOSE_ZONE_INDEX].max;
-    const isClose = distanceIsFresh && latestDistance > 0 && latestDistance < closeBoundary;
-    const isApproachingFast = distanceIsFresh && latestSpeed > APPROACH_SPEED_THRESHOLD_CM_S;
+    if (sensorLost) {
+      fusedEl.textContent = 'Sensor signal lost. Camera only.';
+      fusedEl.classList.remove('alert');
+      fusedEl.classList.add('degraded');
+    } else {
+      fusedEl.classList.remove('degraded');
+    }
 
-    if (isApproachingFast) {
-      const who = identity ? identity.label : 'Object';
-      fusedEl.textContent = `${who} approaching fast — ${latestSpeed} cm/s`;
+    const confirmedFast = CHANNELS.some((c) =>
+      channelFresh(c, now) && sonar[c].fastFrames >= APPROACH_CONFIRM_FRAMES);
+
+    if (confirmedFast && !sensorLost) {
+      const who = identity ? identity.label : 'Something';
+      const side = multiSensor && nearest !== 'center'
+        ? ` on your ${nearest}`
+        : (identity ? ` ${bearingFor(identity.box) || 'ahead'}` : '');
+      fusedEl.textContent = `${who} closing fast at ${speed} cm per second`;
       fusedEl.classList.add('alert');
-      speak(`Stop! ${who} approaching fast`, { urgent: true });
+      announce(`Stop. ${who}${side} closing fast`, { urgent: true });
       lastAnnouncedLabel = who;
       return;
     }
 
-    if (identity && distanceIsFresh) {
-      fusedEl.textContent = `${identity.label} detected — ${latestDistance} cm away`;
-    } else if (identity) {
-      fusedEl.textContent = `${identity.label} detected — waiting for sonar reading`;
-    } else if (distanceIsFresh) {
-      fusedEl.textContent = `Object at ${latestDistance} cm — not recognized by camera`;
-    } else {
-      fusedEl.textContent = 'Waiting for camera + sensor...';
+    const closeBoundary = ZONES[CLOSE_ZONE_INDEX].max;
+    const nearBoundary = ZONES[NEAR_ZONE_INDEX].max;
+    const isClose = distance !== null && distance > 0 && distance < closeBoundary;
+    const isNear = distance !== null && distance > 0 && distance < nearBoundary;
+
+    if (!sensorLost) {
+      if (identity && distance !== null) {
+        fusedEl.textContent = `${identity.label} ${bearingFor(identity.box) || 'ahead'}, ${distance} cm away`;
+      } else if (identity) {
+        fusedEl.textContent = `${identity.label} ${bearingFor(identity.box) || 'ahead'}, no sonar reading`;
+      } else if (distance !== null) {
+        fusedEl.textContent = `Obstacle at ${distance} cm, not recognised by the camera`;
+      } else {
+        fusedEl.textContent = 'Waiting for camera and sensor.';
+      }
+      fusedEl.classList.toggle('alert', isClose);
     }
 
-    fusedEl.classList.toggle('alert', Boolean(identity) && isClose);
-
-    if (identity && isClose && identity.label !== lastAnnouncedLabel) {
-      speak(`${identity.label} detected`);
+    // Announce on identity change, with distance folded in when it's trustworthy.
+    if (identity && identity.label !== lastAnnouncedLabel) {
+      const side = bearingFor(identity.box) || 'ahead';
+      const dist = distance !== null && isNear ? `, ${distance} centimetres` : '';
+      announce(`${identity.label} ${side}${dist}`);
       lastAnnouncedLabel = identity.label;
-    } else if (!identity || !isClose) {
+    } else if (!identity) {
       lastAnnouncedLabel = null;
     }
   }
 
-  // ---------------------------------------------------------------------
-  // Calibration UI
-  // ---------------------------------------------------------------------
-  function calibrate(zoneIndex) {
-    if (latestDistance === null) {
-      log('calibration skipped: no sonar reading yet');
-      return;
-    }
-    ZONES[zoneIndex].max = Math.round(latestDistance);
-    saveZones();
-    refreshZoneLabels();
-    log(`calibrated "${ZONES[zoneIndex].label}" boundary to ${ZONES[zoneIndex].max} cm`);
-    speak(`${ZONES[zoneIndex].label} boundary set to ${ZONES[zoneIndex].max} centimeters`);
+  function updateBearingCells(now, nearest) {
+    if (!multiSensor) return;
+    bearingGridEl.hidden = false;
+    CHANNELS.forEach((c) => {
+      const cell = bearingGridEl.querySelector(`[data-channel="${c}"]`);
+      if (!cell) return;
+      const fresh = channelFresh(c, now);
+      cell.querySelector('[data-field="value"]').textContent = fresh ? `${sonar[c].value} cm` : '--';
+      cell.dataset.offline = String(!fresh);
+      cell.dataset.nearest = String(c === nearest);
+    });
   }
 
+  // ---------------------------------------------------------------------
+  // Scene survey: one gesture, a full read-out of everything currently known.
+  // Bound to the big button, a double-tap anywhere, and the S key.
+  // ---------------------------------------------------------------------
+  function describeScene() {
+    const now = Date.now();
+    const parts = [];
+
+    const detectionsFresh = (now - latestDetectionsAt) < DETECTION_STALE_MS;
+    const facesFresh = (now - latestFacesAt) < FACE_STALE_MS;
+
+    if (facesFresh) {
+      latestFaces.filter((f) => f.name).forEach((f) => {
+        parts.push(`${f.name} ${bearingFor(f.box) || 'ahead'}`);
+      });
+    }
+
+    if (detectionsFresh && latestDetections.length) {
+      const grouped = {};
+      latestDetections.forEach((d) => {
+        const key = `${d.class}|${bearingFor(d.bbox) || 'ahead'}`;
+        grouped[key] = (grouped[key] || 0) + 1;
+      });
+      Object.entries(grouped).forEach(([key, count]) => {
+        const [cls, side] = key.split('|');
+        parts.push(count > 1 ? `${count} ${cls}s ${side}` : `${cls} ${side}`);
+      });
+    }
+
+    if (!parts.length) parts.push(cameraRunning ? 'nothing the camera recognises' : 'camera off');
+
+    let sonarPart;
+    if (sensorLost) {
+      sonarPart = 'Sonar signal lost.';
+    } else if (multiSensor) {
+      const readings = CHANNELS
+        .filter((c) => channelFresh(c, now))
+        .map((c) => `${c === 'center' ? 'centre' : c} ${sonar[c].value}`);
+      sonarPart = readings.length
+        ? `Sonar, in centimetres: ${readings.join(', ')}.`
+        : 'No sonar reading.';
+    } else {
+      const c = nearestChannel(now);
+      sonarPart = c ? `Nearest obstacle ${sonar[c].value} centimetres.` : 'No sonar reading.';
+    }
+
+    return `Around you: ${parts.join(', ')}. ${sonarPart}`;
+  }
+
+  function runSurvey() {
+    const text = describeScene();
+    log(`survey: ${text}`);
+    announce(text, { force: true });
+  }
+
+  surveyBtn.addEventListener('click', runSurvey);
+
+  let lastTapAt = 0;
+  document.addEventListener('pointerdown', (e) => {
+    // Double-tap anywhere that isn't a control, so the survey can be triggered
+    // without hunting for a target.
+    if (e.target.closest('button, input, select, a, summary')) return;
+    const now = Date.now();
+    if (now - lastTapAt < 400 && running) runSurvey();
+    lastTapAt = now;
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, select, textarea')) return;
+    if (e.key === 's' || e.key === 'S') runSurvey();
+  });
+
+  // ---------------------------------------------------------------------
+  // Calibration. Boundaries are clamped so the zone array stays ordered.
+  // ---------------------------------------------------------------------
+  function calibrate(zoneIndex) {
+    const c = nearestChannel();
+    if (!c) {
+      announce('No sonar reading to calibrate from', { force: true });
+      return;
+    }
+
+    const upper = ZONES[zoneIndex - 1].max;
+    const lower = ZONES[zoneIndex + 1].max;
+    const requested = Math.round(sonar[c].value);
+    const clamped = Math.max(lower + 1, Math.min(upper - 1, requested));
+
+    ZONES[zoneIndex].max = clamped;
+    saveZones();
+    refreshZoneLabels();
+    currentZoneLabel = null; // force the tone to re-evaluate against new bounds
+
+    const note = clamped !== requested ? ` adjusted from ${requested} to stay in order` : '';
+    log(`calibrated "${ZONES[zoneIndex].label}" to ${clamped} cm${note}`);
+    recordEvent('calibrate', `${ZONES[zoneIndex].label} = ${clamped}`);
+    announce(`${ZONES[zoneIndex].label} boundary set to ${clamped} centimetres${note}`, { force: true });
+  }
+
+  calibrateApproachBtn.addEventListener('click', () => calibrate(APPROACH_ZONE_INDEX));
   calibrateNearBtn.addEventListener('click', () => calibrate(NEAR_ZONE_INDEX));
   calibrateCloseBtn.addEventListener('click', () => calibrate(CLOSE_ZONE_INDEX));
   resetZonesBtn.addEventListener('click', () => {
     ZONES = DEFAULT_ZONES.map((z) => ({ ...z }));
     saveZones();
     refreshZoneLabels();
+    currentZoneLabel = null;
     log('zones reset to defaults');
+    announce('Zones reset to defaults', { force: true });
   });
 
   // ---------------------------------------------------------------------
-  // Wiring
+  // Wake lock — the screen sleeping mid-walk kills the aid entirely.
+  // ---------------------------------------------------------------------
+  let wakeLock = null;
+  let wakeLockWanted = true;
+
+  async function acquireWakeLock() {
+    if (!wakeLockWanted || !('wakeLock' in navigator) || wakeLock) return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+      log('screen wake lock acquired');
+    } catch (err) {
+      log(`wake lock failed: ${err.message}`);
+    }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') acquireWakeLock();
+  });
+
+  wakeLockBtn.addEventListener('click', async () => {
+    wakeLockWanted = !wakeLockWanted;
+    wakeLockBtn.textContent = `Keep screen awake: ${wakeLockWanted ? 'on' : 'off'}`;
+    wakeLockBtn.setAttribute('aria-pressed', String(wakeLockWanted));
+    if (wakeLockWanted) await acquireWakeLock();
+    else if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+  });
+
+  // ---------------------------------------------------------------------
+  // Sonar watchdog. Without this, a dead sensor leaves the last zone beeping
+  // forever at an obstacle that isn't there — and, worse, goes silent about
+  // the ones that are.
+  // ---------------------------------------------------------------------
+  setInterval(() => {
+    if (!running) return;
+    const now = Date.now();
+    const anyFresh = CHANNELS.some((c) => channelFresh(c, now));
+    const anyActive = CHANNELS.some((c) => sonar[c].active);
+
+    if (!anyFresh && anyActive && !sensorLost) {
+      const lastSeen = Math.max(...CHANNELS.map((c) => sonar[c].at));
+      if (now - lastSeen > SENSOR_LOST_MS) {
+        sensorLost = true;
+        silenceTone();
+        resetSonar();
+        readingEl.textContent = '--';
+        speedEl.textContent = '--';
+        log('SENSOR LOST — sonification silenced');
+        recordEvent('sensor', 'signal lost');
+        announce('Sensor signal lost. Camera only.', { urgent: true });
+        updateFusedReadout();
+      }
+    }
+  }, 300);
+
+  socket.on('disconnect', () => {
+    log('socket disconnected');
+  });
+
+  socket.on('connect', () => {
+    log('socket connected');
+    if (sensorLost) {
+      sensorLost = false;
+      announce('Sensor signal back', { force: true });
+    }
+  });
+
+  // Accepts both payload shapes:
+  //   single sensor: { distanceCm: 120, speedCmPerSec: 4 }
+  //   three sensors: { left: 210, center: 120, right: null }
+  socket.on('distance', (data) => {
+    if (!data) return;
+    const now = Date.now();
+    let got = false;
+
+    CHANNELS.forEach((c) => {
+      const v = data[c];
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) {
+        ingest(c, v, now);
+        got = true;
+        if (c !== 'center') multiSensor = true;
+      }
+    });
+
+    if (!got && typeof data.distanceCm === 'number' && Number.isFinite(data.distanceCm)) {
+      ingest('center', data.distanceCm, now);
+      got = true;
+    }
+
+    if (!got) return;
+
+    if (sensorLost) {
+      sensorLost = false;
+      log('sensor signal restored');
+      recordEvent('sensor', 'signal restored');
+      announce('Sensor signal back', { force: true });
+    }
+
+    const nearest = nearestChannel(now);
+    if (nearest) {
+      readingEl.textContent = sonar[nearest].value;
+      speedEl.textContent = sonar[nearest].speed;
+      updateSonification(sonar[nearest].value);
+    }
+    updateFusedReadout();
+  });
+
+  // ---------------------------------------------------------------------
+  // Start
   // ---------------------------------------------------------------------
   startBtn.addEventListener('click', async () => {
     unlockSpeech();
     initAudioFeedback();
     startBtn.disabled = true;
     startBtn.textContent = 'Running';
+    surveyBtn.disabled = false;
+    running = true;
+    recordEvent('session', 'started');
+    acquireWakeLock();
 
     if (modelAvailable) {
-      await startCamera();
+      const ok = await startCamera();
+      if (ok) {
+        detectLoop();
+        faceDetectLoop();
+      }
     } else {
-      log('starting in sonar-only mode (no camera detection)');
-      fusedEl.textContent = 'Sonar-only mode — listening for distance...';
+      log('starting in sonar-only mode');
+      fusedEl.textContent = 'Sonar-only mode. Listening for distance.';
     }
+
+    announce('Sonar Vision running. Double tap anywhere to hear what is around you.', { force: true });
   });
 
-  socket.on('distance', (data) => {
-    if (data.distanceCm === null) return;
-    latestDistance = data.distanceCm;
-    latestDistanceAt = Date.now();
-    latestSpeed = data.speedCmPerSec || 0;
-    readingEl.textContent = data.distanceCm;
-    document.getElementById('speed').textContent = latestSpeed;
-    updateSonification(data.distanceCm);
-    updateFusedReadout();
-  });
+  // ---------------------------------------------------------------------
+  // Offline: cache the model weights and libraries so the app works outdoors,
+  // which is exactly where there is no wifi.
+  // ---------------------------------------------------------------------
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(() => log('service worker registered — models will be cached for offline use'))
+        .catch((err) => log(`service worker registration failed: ${err.message}`));
+    });
+  }
 
   loadModel();
   loadFaceModels();
