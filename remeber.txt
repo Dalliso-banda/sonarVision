@@ -1,0 +1,2 @@
+ node server.js /dev/ttyUSB0
+and USB 0 IS TO YOUR LEFT THE PORT WHICH IS ALONE 
