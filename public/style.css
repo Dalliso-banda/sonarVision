@@ -1,0 +1,80 @@
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #0f1117;
+    color: #eee;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  h1 { font-size: 16px; font-weight: 500; opacity: 0.9; margin-bottom: 4px; text-align: center; }
+  #status { font-size: 13px; opacity: 0.6; margin-bottom: 16px; text-align: center; }
+  #hud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    font-size: 14px;
+  }
+  #hud span { color: #4ade80; font-weight: 600; }
+  #videoWrap {
+    position: relative;
+    width: 480px;
+    max-width: 90vw;
+  }
+  video, canvas {
+    width: 100%;
+    border-radius: 8px;
+    display: block;
+  }
+  canvas#overlay {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+  }
+  #fusedReadout {
+    margin-top: 20px;
+    padding: 14px 20px;
+    background: #1a1d27;
+    border-radius: 8px;
+    width: 480px;
+    max-width: 90vw;
+    font-size: 15px;
+    text-align: center;
+    box-sizing: border-box;
+  }
+  #fusedReadout.alert {
+    background: #3a1a1a;
+    color: #f87171;
+  }
+  button {
+    background: #4ade80;
+    border: none;
+    color: #0f1117;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 20px;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #debugLog {
+    margin-top: 16px;
+    width: 480px;
+    max-width: 90vw;
+    max-height: 140px;
+    overflow-y: auto;
+    background: #14161f;
+    border: 1px solid #2a2d3a;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: monospace;
+    font-size: 11px;
+    color: #8ab4f8;
+    white-space: pre-wrap;
+  }

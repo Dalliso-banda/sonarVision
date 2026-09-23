@@ -1,4 +1,4 @@
-/* coco melon ...egg found....
+/*
  * Sonar Vision service worker.
  *
  * The point of this file: the app is useless without a network on first load,
