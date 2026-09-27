@@ -37,12 +37,10 @@ let latest = {
 };
 
 // --- Serial setup ---
-const serial = new SerialPort({ path: serialPath, baudRate }, (err) => {
-  if (err) {
-    console.error(`Could not open ${serialPath}: ${err.message}`);
-    console.error('Tip: pass the correct port, e.g. node server.js /dev/ttyUSB0');
-    process.exit(1);
-  }
+const serial = new SerialPort({
+  path: serialPath,
+  baudRate,
+  autoOpen: false,
 });
 
 const parser = serial.pipe(new ReadlineParser({ delimiter: '\r\n' }));
@@ -59,7 +57,9 @@ serial.on('close', () => {
 });
 
 serial.on('error', (err) => {
+  latest.connected = false;
   console.error('Serial port error:', err.message);
+  io.emit('status', { connected: false });
 });
 
 parser.on('data', (line) => {
@@ -68,6 +68,7 @@ parser.on('data', (line) => {
   if (!match) return;
 
   const distanceCm = parseInt(match[1], 10);
+
   latest = {
     distanceCm,
     objectDetected: distanceCm > 0 && distanceCm < 20,
@@ -75,13 +76,25 @@ parser.on('data', (line) => {
     connected: true,
   };
 
-  io.emit('distance', latest); // push to every connected browser
+  io.emit('distance', latest);
+});
+
+// Open the serial port without allowing a failure to terminate the server.
+serial.open((err) => {
+  if (err) {
+    latest.connected = false;
+    console.error(`Could not open ${serialPath}: ${err.message}`);
+    console.error('Sonar hardware unavailable. Continuing in camera-only mode.');
+    io.emit('status', { connected: false });
+  }
 });
 
 // --- Socket.IO ---
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
-  socket.emit('distance', latest); // send current state immediately on connect
+
+  socket.emit('distance', latest);
+  socket.emit('status', { connected: latest.connected });
 
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
@@ -90,4 +103,8 @@ io.on('connection', (socket) => {
 
 httpServer.listen(httpPort, () => {
   console.log(`Server running at http://localhost:${httpPort}`);
+
+  if (!serial.isOpen) {
+    console.log('Sonar status: unavailable until the serial port opens.');
+  }
 });

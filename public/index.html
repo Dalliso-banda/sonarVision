@@ -595,7 +595,16 @@
 -->
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
 <script>
-  const socket = io();
+  const socket = (typeof io === 'function')
+    ? io()
+    : {
+        on: () => {},
+        emit: () => {},
+      };
+
+  if (typeof io !== 'function') {
+    console.warn('Socket.IO unavailable — sonar features disabled; camera features can continue.');
+  }
   const video = document.getElementById('video');
   const overlay = document.getElementById('overlay');
   const octx = overlay.getContext('2d');
