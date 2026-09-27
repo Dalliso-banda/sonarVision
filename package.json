@@ -1,5 +1,19 @@
 {
-  "name": "ieee",
+{
+  "name": "sonarvision",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "Apps/web",
+    "Apps/mobile",
+    "Apps/api"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace Apps/web run dev",
+    "build:web": "npm --workspace Apps/web run build",
+    "lint:web": "npm --workspace Apps/web run lint"
+  }
+},
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
