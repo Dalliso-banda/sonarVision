@@ -1,122 +1,81 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react'
+import { useSonar } from './hooks/useSonar'
+import { loadZones } from './services/storage'
+import { useVision } from './hooks/useVision'
+import { start as startVision, stopCamera } from './services/vision'
+import { useFeedback } from './hooks/useFeedback'
+import { startAudio, stopAudio } from './services/audio'
+import { announce, keepSpeechAlive, unlockSpeech } from './services/speech'
+import { recordEvent } from './services/storage'
+import Live from './pages/Live'
+import People from './pages/People'
+import Calibration from './pages/Calibration'
+import History from './pages/History'
+import Settings from './pages/Settings'
 
-function App() {
-  const [count, setCount] = useState(0)
+const TABS = [['live', 'Live'], ['people', 'People'], ['calibration', 'Calibration'], ['history', 'History'], ['settings', 'Settings']]
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function useHash() {
+  const get = () => window.location.hash.slice(1)
+  const [h, setH] = useState(get)
+  useEffect(() => {
+    const f = () => setH(get())
+    window.addEventListener('hashchange', f)
+    return () => window.removeEventListener('hashchange', f)
+  }, [])
+  return TABS.some((t) => t[0] === h) ? h : 'live'
 }
 
-export default App
+// Screen-reader output mode: announcements land in these live regions instead of speechSynthesis.
+function LiveRegions() {
+  const [p, setP] = useState(''), [u, setU] = useState('')
+  useEffect(() => {
+    const f = (e) => {
+      const set = e.detail.urgent ? setU : setP
+      set(''); setTimeout(() => set(e.detail.text), 30) // clear first so repeats re-announce
+    }
+    window.addEventListener('sv-announce', f)
+    return () => window.removeEventListener('sv-announce', f)
+  }, [])
+  return (<><div className="sr" role="status" aria-live="polite" aria-atomic="true">{p}</div><div className="sr" role="alert" aria-live="assertive" aria-atomic="true">{u}</div></>)
+}
+
+export default function App() {
+  const page = useHash()
+  const sonar = useSonar()
+  const [zones, setZones] = useState(loadZones)
+  const vision = useVision()
+  const [running, setRunning] = useState(false)
+  useFeedback(sonar, zones, running)
+  useEffect(() => { const id = keepSpeechAlive(); return () => { clearInterval(id); stopAudio(); stopCamera() } }, [])
+  const start = () => { unlockSpeech(); startAudio(); setRunning(true); recordEvent('session', 'started'); announce('Sonar Vision running.', { force: true }); startVision() }
+  const stop = () => { stopAudio(); stopCamera(); setRunning(false); recordEvent('session', 'stopped') }
+  const critical = sonar.fast || sonar.lost
+
+  return (
+    <div className="app">
+      <a className="skip" href="#live" onClick={(e) => { e.preventDefault(); document.getElementById('main').focus() }}>Skip to content</a>
+      <LiveRegions />
+      <nav aria-label="Main">
+        <a className="brand" href="#live">Sonar Vision</a>
+        <ul>
+          {TABS.map(([id, label]) => (
+            <li key={id}><a href={`#${id}`} aria-current={id === page ? 'page' : undefined}>{label}</a></li>
+          ))}
+        </ul>
+      </nav>
+      <main id="main" tabIndex={-1}>
+        {critical && page !== 'live' && (
+          <div className="banner" role="alert">
+            {sonar.lost ? 'Sensor signal lost.' : 'Something is closing fast.'} <a href="#live">Go to Live</a>
+          </div>
+        )}
+        {page === 'live' && <Live sonar={sonar} zones={zones} running={running} onStart={start} onStop={stop} vision={vision} />}
+        {page === 'people' && <People vision={vision} running={running} />}
+        {page === 'calibration' && <Calibration sonar={sonar} zones={zones} setZones={setZones} />}
+        {page === 'history' && <History />}
+        {page === 'settings' && <Settings />}
+      </main>
+    </div>
+  )
+}
