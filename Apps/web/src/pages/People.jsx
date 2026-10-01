@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Empty, Page } from '../components/ui'
+import Avatar from '@mui/material/Avatar'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
+import { Card, Empty, Page } from '../components/ui'
 import { getFaces, removeFace } from '../services/storage'
 import { attachOverlay, attachVideo, enroll, init, reloadFaces, startCamera, stopCamera } from '../services/vision'
 
@@ -31,46 +37,52 @@ export default function People({ vision: v, running }) {
 
   return (
     <Page title="People" intro="People you add are announced by name. Faces are stored on this device as numbers, not photos.">
-      {st.status === 'loading' && <p role="status">Loading…</p>}
+      {st.status === 'loading' && <Typography role="status">Loading…</Typography>}
       {st.status === 'error' && <Empty title="Could not read saved people">Storage is unavailable in this browser.</Empty>}
       {st.status === 'ready' && !st.rows.length && <Empty title="No one added yet">Add someone below, and they will be announced by name.</Empty>}
       {st.rows.length > 0 && (
-        <ul className="rows">
+        <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0, display: 'grid', gap: 1.5 }}>
           {st.rows.map((r) => {
             const n = (r.descriptors || [r.descriptor].filter(Boolean)).length
             return (
-              <li key={r.id}>
-                <span>{r.name}<small>{n} {n === 1 ? 'look' : 'looks'}</small></span>
-                <button className="btn" aria-label={`Remove ${r.name}`} onClick={() => remove(r.id)}>Remove</button>
-              </li>
+              <Card component="li" key={r.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2 }}>
+                <Avatar aria-hidden="true" sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 700 }}>{r.name?.[0]?.toUpperCase()}</Avatar>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{r.name}</Typography>
+                  <Chip size="small" variant="outlined" label={`${n} ${n === 1 ? 'look' : 'looks'}`} />
+                </Box>
+                <Button variant="outlined" aria-label={`Remove ${r.name}`} onClick={() => remove(r.id)}>Remove</Button>
+              </Card>
             )
           })}
-        </ul>
+        </Box>
       )}
-      <section className="step">
-        <h2>Add someone</h2>
+
+      <Card sx={{ display: 'grid', gap: 2 }}>
+        <Typography component="h2" sx={{ fontWeight: 700, fontSize: '1.25rem' }}>Add someone</Typography>
         {!cameraOn && (
           <>
-            <p>{v.camera === 'denied' ? 'Camera permission denied. Allow camera access in your browser settings.' : v.camera === 'unavailable' ? 'Camera unavailable.' : 'Point the camera at them and ask them to turn their head slowly. Five looks are taken over a few seconds.'}</p>
-            <button className="btn primary" onClick={open} disabled={v.camera === 'starting'}>Open camera</button>
+            <Typography color="text.secondary">
+              {v.camera === 'denied' ? 'Camera permission denied. Allow camera access in your browser settings.' : v.camera === 'unavailable' ? 'Camera unavailable.' : 'Point the camera at them and ask them to turn their head slowly. Five looks are taken over a few seconds.'}
+            </Typography>
+            <Button variant="contained" size="large" onClick={open} disabled={v.camera === 'starting'}>Open camera</Button>
           </>
         )}
         {cameraOn && (
           <>
-            <div className="frame"><video ref={attachVideo} autoPlay playsInline muted /><canvas ref={attachOverlay} aria-hidden="true" /></div>
-            {v.faces !== 'ready' && <p role="status">{v.faces === 'unavailable' ? 'Face recognition is unavailable, so people cannot be added.' : 'Loading face recognition…'}</p>}
-            <label htmlFor="pname"><strong>Name</strong></label>
-            <input id="pname" className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="For example Mom" />
-            <div className="actions">
-              <button className="btn primary" onClick={add} disabled={v.faces !== 'ready' || v.enrolling}>{v.enrolling ? `Look ${v.looks} of 5…` : 'Add from camera'}</button>
-              {Rec && <button className="btn" onClick={say}>Say the name</button>}
-              {!running && <button className="btn" onClick={stopCamera}>Close camera</button>}
-            </div>
+            <div className="frame" style={{ borderRadius: 20, margin: 0 }}><video ref={attachVideo} autoPlay playsInline muted /><canvas ref={attachOverlay} aria-hidden="true" /></div>
+            {v.faces !== 'ready' && <Typography role="status">{v.faces === 'unavailable' ? 'Face recognition is unavailable, so people cannot be added.' : 'Loading face recognition…'}</Typography>}
+            <TextField id="pname" label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="For example Mom" fullWidth />
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+              <Button variant="contained" onClick={add} disabled={v.faces !== 'ready' || v.enrolling}>{v.enrolling ? `Look ${v.looks} of 5…` : 'Add from camera'}</Button>
+              {Rec && <Button variant="outlined" onClick={say}>Say the name</Button>}
+              {!running && <Button variant="outlined" onClick={stopCamera}>Close camera</Button>}
+            </Box>
           </>
         )}
-        <p className="msg" role="status">{msg}</p>
-        <p className="note">Ask each person before adding them. In many places, recording someone&rsquo;s face needs their consent.</p>
-      </section>
+        <Typography role="status" color="text.secondary" sx={{ minHeight: '1.5em' }}>{msg}</Typography>
+        <Typography color="text.secondary" sx={{ fontSize: '0.9rem' }}>Ask each person before adding them. In many places, recording someone&rsquo;s face needs their consent.</Typography>
+      </Card>
     </Page>
   )
 }
