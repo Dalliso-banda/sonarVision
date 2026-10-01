@@ -5,6 +5,7 @@ import SensorsIcon from '@mui/icons-material/Sensors'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import GraphicEqIcon from '@mui/icons-material/GraphicEq'
+import Logo from '../components/Logo'
 
 const features = [
   { title: 'Hear what is ahead', desc: 'Beeps get faster as you get closer', icon: <SensorsIcon sx={{ color: '#C2601A' }} />, iconBg: '#FDEBDD' },
@@ -35,8 +36,8 @@ export default function Landing() {
           borderBottom: `4px solid ${t.palette.primary.dark}`,
         })}
       >
-        <Avatar variant="rounded" aria-hidden="true" sx={{ bgcolor: 'rgba(31,26,23,0.14)', color: 'primary.contrastText', width: 64, height: 64, borderRadius: '20px' }}>
-          <GraphicEqIcon sx={{ fontSize: 36 }} />
+        <Avatar variant="rounded" aria-hidden="true" sx={{ bgcolor: 'rgba(31,26,23,0.14)', color: 'primary.contrastText', width: 100, height: 100, borderRadius: '20px' }}>
+          <Logo/>
         </Avatar>
         <Typography variant="h1" sx={{ fontSize: '2.125rem', fontWeight: 'bold', letterSpacing: '-0.5px', m: 0 }}>
           Sonar Vision
