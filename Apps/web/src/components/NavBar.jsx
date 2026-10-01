@@ -36,7 +36,7 @@ const actionSx = (theme) => ({
       color: theme.palette.primary.main,
     },
   },
-  // Amber would vanish on orange, so focus uses the dark colour.
+ 
   '&.Mui-focusVisible': {
     outline: `3px solid ${theme.palette.primary.contrastText}`,
     outlineOffset: -3,

@@ -2,7 +2,9 @@
   "apps": [
     {
       "appId": "74c8ef68",
-      "root": "Apps/mobile"
+      "root": "Apps/mobile",
+      "dependencyInstallCommand": "npm ci && cd ../web && npm install",
+      "webBuildCommand": "cd ../web && npm run build"
     }
   ]
 }
