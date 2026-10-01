@@ -60,7 +60,7 @@ export default function Calibration({ sonar: s, zones, setZones }) {
           </Button>
         </Card>
       ))}
-      <Button variant="outlined" size="large" onClick={() => apply(DEFAULT_ZONES.map((z) => ({ ...z })), 'Zones reset to defaults.')}>Reset to defaults</Button>
+      <Button sx={{mb:7}} variant="outlined" size="large" onClick={() => apply(DEFAULT_ZONES.map((z) => ({ ...z })), 'Zones reset to defaults.')}>Reset to defaults</Button>
     </Page>
   )
 }
