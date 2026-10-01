@@ -1,0 +1,26 @@
+FROM eclipse-temurin:17-jdk-jammy
+
+ENV ANDROID_HOME=/opt/android-sdk
+ENV PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+
+RUN apt-get update && apt-get install -y unzip git && rm -rf /var/lib/apt/lists/*
+
+# cmdline-tools zip is downloaded on the host first (see README/build notes) and
+# copied in here, rather than wget'd during the build - dl.google.com was
+# unreliable from inside the Docker build network.
+COPY commandlinetools-linux-15859902_latest.zip /tmp/cmdline.zip
+
+RUN mkdir -p $ANDROID_HOME/cmdline-tools && \
+    unzip -q /tmp/cmdline.zip -d $ANDROID_HOME/cmdline-tools && \
+    mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest && \
+    rm /tmp/cmdline.zip
+
+RUN yes | sdkmanager --licenses
+
+RUN sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+WORKDIR /workspace
+
+COPY . .
+
+CMD ["/bin/sh", "-c", "cd Apps/mobile/android && ./gradlew assembleDebug"]
