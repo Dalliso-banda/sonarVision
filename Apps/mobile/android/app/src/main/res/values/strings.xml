@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SonarVision Mobile</string>
+    <string name="title_activity_main">SonarVision Mobile</string>
+    <string name="package_name">com.sonarvision.app</string>
+    <string name="custom_url_scheme">com.sonarvision.app</string>
+</resources>

@@ -1,0 +1,5 @@
+{
+  "appId": "com.sonarvision.app",
+  "appName": "SonarVision Mobile",
+  "webDir": "../web/dist"
+}
