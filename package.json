@@ -1,29 +1,24 @@
 {
-{
   "name": "sonarvision",
   "version": "1.0.0",
   "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "description": "SonarVision monorepo workspace and backend server",
   "workspaces": [
     "Apps/web",
     "Apps/mobile",
     "Apps/api"
   ],
   "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
     "dev:web": "npm --workspace Apps/web run dev",
     "build:web": "npm --workspace Apps/web run build",
     "lint:web": "npm --workspace Apps/web run lint"
-  }
-},
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "@serialport/parser-readline": "^13.0.0",
     "express": "^5.2.1",
