@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom'
 import SensorsIcon from '@mui/icons-material/Sensors'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
-import GraphicEqIcon from '@mui/icons-material/GraphicEq'
 import Logo from '../components/Logo'
 
 const features = [
