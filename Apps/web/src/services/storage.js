@@ -17,7 +17,14 @@ export function saveZones(zones) {
 }
 export const read = (k, d) => { try { return localStorage.getItem(k) ?? d } catch { return d } }
 export const write = (k, v) => { try { localStorage.setItem(k, String(v)) } catch { /* ignore */ } }
-export const KEYS = { output: 'sonarVisionOutputMode', rate: 'sonarVisionSpeechRate' }
+export const KEYS = {
+  output: 'sonarVisionOutputMode',
+  rate: 'sonarVisionSpeechRate',
+  cameraSource: 'sonarVisionCameraSource', // 'phone' or 'esp32'
+  esp32Host: 'sonarVisionEsp32Host',       // default '192.168.4.1'
+  esp32StreamPort: 'sonarVisionEsp32StreamPort', // default '' or '81'
+  esp32StreamPath: 'sonarVisionEsp32StreamPath', // default '/stream'
+}
 
 function openDB() {
   return new Promise((res, rej) => {
