@@ -2,7 +2,7 @@
 // Same CDN libraries, same load order, thresholds, intervals and stored record shape.
 // A singleton (not React state) because the loops run independently of any page.
 import { announce } from './speech'
-import { getFaces, recordEvent, saveFace } from './storage'
+import { getFaces, recordEvent, saveFace, KEYS, read, write } from './storage'
 
 const SCRIPTS = [
   'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js',
@@ -17,13 +17,33 @@ const RELEVANT = new Set(['person', 'bicycle', 'car', 'motorcycle', 'bus', 'truc
   'dining table', 'toilet', 'potted plant', 'backpack', 'handbag', 'suitcase', 'refrigerator', 'oven', 'sink', 'tv',
   'dog', 'cat', 'traffic light', 'stop sign', 'fire hydrant'])
 
-let state = { camera: 'off', objects: 'idle', faces: 'idle', facing: 'environment', enrolling: false, looks: 0, seen: null, people: 0 }
+function getStreamUrl() {
+  const host = read(KEYS.esp32Host, '192.168.4.1')
+  const port = read(KEYS.esp32StreamPort, '')
+  const path = read(KEYS.esp32StreamPath, '/stream')
+  return `http://${host}${port ? ':' + port : ''}${path.startsWith('/') ? path : '/' + path}`
+}
+
+let state = {
+  camera: 'off',
+  source: read(KEYS.cameraSource, 'esp32'), // 'esp32' | 'phone'
+  esp32Host: read(KEYS.esp32Host, '192.168.4.1'),
+  streamUrl: getStreamUrl(),
+  objects: 'idle',
+  faces: 'idle',
+  facing: 'environment',
+  enrolling: false,
+  looks: 0,
+  seen: null,
+  people: 0,
+}
+
 const subs = new Set()
 const set = (p) => { state = { ...state, ...p }; subs.forEach((f) => f()) }
 export const subscribe = (f) => { subs.add(f); return () => subs.delete(f) }
 export const getSnapshot = () => state
 
-let video = null, overlay = null, stream = null, model = null, matcher = null, loading = null, loopsOn = false
+let video = null, image = null, overlay = null, stream = null, model = null, matcher = null, loading = null, loopsOn = false
 let dets = [], detsAt = 0, faces = [], facesAt = 0, person = false
 
 const loadScript = (src) => new Promise((res) => {
@@ -64,7 +84,7 @@ export async function reloadFaces() {
   const f = window.faceapi
   if (!f || state.faces !== 'ready') return
   const by = {}
-  rows.forEach((r) => { // v1 rows: single `descriptor`; v2: `descriptors[]`
+  rows.forEach((r) => {
     const list = r.descriptors || (r.descriptor ? [r.descriptor] : [])
     by[r.name] ||= []
     list.forEach((d) => by[r.name].push(new Float32Array(d)))
@@ -73,24 +93,96 @@ export async function reloadFaces() {
   matcher = labeled.length ? new f.FaceMatcher(labeled, MATCH) : null
 }
 
-function sizeOverlay() { if (overlay && video?.videoWidth) { overlay.width = video.videoWidth; overlay.height = video.videoHeight } }
-async function bind() {
-  if (video && stream && video.srcObject !== stream) { video.srcObject = stream; try { await video.play() } catch { /* autoplay blocked */ } }
+function sizeOverlay() {
+  if (!overlay) return
+  const w = state.source === 'esp32' ? (image?.naturalWidth || 640) : (video?.videoWidth || 640)
+  const h = state.source === 'esp32' ? (image?.naturalHeight || 480) : (video?.videoHeight || 480)
+  if (w && h) {
+    overlay.width = w
+    overlay.height = h
+  }
+}
+
+async function bindVideo() {
+  if (video && stream && video.srcObject !== stream) {
+    video.srcObject = stream
+    try { await video.play() } catch { /* autoplay blocked */ }
+  }
   sizeOverlay()
 }
-export function attachVideo(el) { video = el; if (el) bind() }
-export function attachOverlay(el) { overlay = el; sizeOverlay() }
+
+export function attachVideo(el) {
+  video = el
+  if (el && state.source === 'phone') bindVideo()
+}
+
+export function attachImage(el) {
+  image = el
+  if (el && state.source === 'esp32') {
+    el.crossOrigin = 'anonymous'
+    if (state.camera === 'on' || state.camera === 'starting') {
+      el.src = state.streamUrl
+    }
+    el.onload = () => {
+      set({ camera: 'on' })
+      sizeOverlay()
+    }
+    el.onerror = () => {
+      if (state.source === 'esp32' && loopsOn) {
+        set({ camera: 'unavailable' })
+      }
+    }
+  }
+}
+
+export function attachOverlay(el) {
+  overlay = el
+  sizeOverlay()
+}
+
+export async function setCameraSource(source) {
+  if (source !== 'phone' && source !== 'esp32') return
+  write(KEYS.cameraSource, source)
+  set({ source, streamUrl: getStreamUrl() })
+  if (loopsOn) {
+    await stopCamera()
+    await startCamera()
+  }
+}
+
+export function setEsp32Config(host, port = '', path = '/stream') {
+  write(KEYS.esp32Host, host)
+  write(KEYS.esp32StreamPort, port)
+  write(KEYS.esp32StreamPath, path)
+  const streamUrl = getStreamUrl()
+  set({ esp32Host: host, streamUrl })
+  if (state.source === 'esp32' && image) {
+    image.src = streamUrl
+  }
+}
 
 export async function startCamera() {
   set({ camera: 'starting' })
+  if (state.source === 'esp32') {
+    const url = getStreamUrl()
+    set({ streamUrl: url })
+    if (image) {
+      image.crossOrigin = 'anonymous'
+      image.src = url
+    }
+    // We assume starting; image.onload will confirm 'on'
+    set({ camera: 'on' })
+    return true
+  }
+
+  // Phone camera
   try {
     stream?.getTracks().forEach((t) => t.stop())
-    // Look where the user is walking: `video: true` gives the selfie camera on most phones.
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: state.facing }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false,
     })
     set({ camera: 'on' })
-    await bind()
+    await bindVideo()
     return true
   } catch (err) {
     stream = null
@@ -98,17 +190,33 @@ export async function startCamera() {
     return false
   }
 }
+
 export function stopCamera() {
   loopsOn = false
   stream?.getTracks().forEach((t) => t.stop())
   stream = null
   if (video) video.srcObject = null
+  if (image) image.src = ''
   dets = []; faces = []; person = false
   set({ camera: 'off', seen: null })
 }
-export async function flip() { set({ facing: state.facing === 'environment' ? 'user' : 'environment' }); return startCamera() }
 
-// Called from the Start button: needs coco-ssd and a working camera, else sonar-only (as the original).
+export async function flip() {
+  if (state.source !== 'phone') return false
+  set({ facing: state.facing === 'environment' ? 'user' : 'environment' })
+  return startCamera()
+}
+
+export function getActiveMediaElement() {
+  if (state.source === 'esp32') {
+    if (image && image.complete && image.naturalWidth > 0) return image
+    return null
+  }
+  if (video && video.readyState === 4) return video
+  return null
+}
+
+// Called from the Start button: needs coco-ssd and a working camera, else sonar-only.
 export async function start() {
   await init()
   if (!model || !(await startCamera())) return false
@@ -119,8 +227,9 @@ export async function start() {
 async function detectLoop() {
   if (!loopsOn) return
   try {
-    if (model && stream && video && video.readyState === 4) {
-      const raw = await model.detect(video)
+    const input = getActiveMediaElement()
+    if (model && input) {
+      const raw = await model.detect(input)
       dets = raw.filter((d) => RELEVANT.has(d.class) && d.score >= CONF).sort((a, b) => b.score - a.score)
       detsAt = Date.now()
       person = dets.some((d) => d.class === 'person')
@@ -136,10 +245,11 @@ async function faceLoop() {
   let wait = FACE_IDLE_MS
   try {
     const f = window.faceapi
-    if (state.faces === 'ready' && stream && video && video.readyState === 4 && !state.enrolling) {
+    const input = getActiveMediaElement()
+    if (state.faces === 'ready' && input && !state.enrolling) {
       if (person) {
         wait = FACE_MS
-        const res = await f.detectAllFaces(video, new f.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors()
+        const res = await f.detectAllFaces(input, new f.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors()
         faces = res.map((r) => {
           let name = null, score = null
           if (matcher) { const b = matcher.findBestMatch(r.descriptor); if (b.label !== 'unknown') { name = b.label; score = b.distance } }
@@ -168,7 +278,7 @@ function draw() {
 }
 
 const centerX = (b) => (b.x !== undefined ? b.x + b.width / 2 : b[0] + b[2] / 2)
-const frameW = () => overlay?.width || video?.videoWidth || 0
+const frameW = () => overlay?.width || (state.source === 'esp32' ? image?.naturalWidth : video?.videoWidth) || 0
 export function bearingFor(box) {
   const w = frameW()
   if (!box || !w) return null
@@ -196,13 +306,14 @@ function tick() {
 // Several looks per person: one descriptor is fragile across lighting and head angle.
 export async function enroll(name) {
   const f = window.faceapi
-  if (state.faces !== 'ready' || state.camera !== 'on' || state.enrolling || !video) return { ok: false, reason: 'notready' }
+  const input = getActiveMediaElement()
+  if (state.faces !== 'ready' || state.camera !== 'on' || state.enrolling || !input) return { ok: false, reason: 'notready' }
   set({ enrolling: true, looks: 0 })
   announce(`Adding ${name}. Ask them to turn their head slowly.`, { force: true })
   const ds = []
   try {
     for (let i = 0; i < SAMPLES; i += 1) {
-      const r = await f.detectSingleFace(video, new f.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor()
+      const r = await f.detectSingleFace(input, new f.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor()
       if (r) { ds.push(Array.from(r.descriptor)); set({ looks: ds.length }); announce(`Look ${ds.length} of ${SAMPLES}`, { force: true }) }
       await new Promise((res) => setTimeout(res, SAMPLE_GAP))
     }
